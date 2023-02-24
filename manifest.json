@@ -1,0 +1,15 @@
+{
+  "name": "Console.js - sample",
+  "scope": "./",
+  "start_url": "./",
+  "theme_color": "#cdddbd",
+  "background_color": "#ffffff",
+  "display": "standalone",
+  "icons": [
+    {
+      "src": "./icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
