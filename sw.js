@@ -2,7 +2,9 @@
 (async()=>{
 importScripts("./Console.js")
 let app = await Console.storage
-await(app.versw = "0.1.0")
+await(app.versw = "0.2.0")
+
+
 
 console.log("sw.js start")
 
@@ -38,6 +40,12 @@ self.addEventListener("fetch", async(event)=>{
 })
 
 
+
+const wait=async(ms)=>new Promise(resolve=>setTimeout(resolve, ms))
+
+console.log("[sw]wait start")
+await wait(2000)
+console.log("[sw]wait end")
 
 await(app.sw1 = 1)
 let sw1 = await app.sw1
