@@ -1,14 +1,14 @@
 "use strict";
 (()=>{
 
-const VERSION = "0.3.0";
+const VERSION = "0.4.0";
 
 //const p = ((Math.random()*26)+10).toString(36).replace(".","")
 
 const iswin = (typeof(window)!=="undefined")
 const issw  = (typeof(ServiceWorkerGlobalScope)!=="undefined")
 const canbcc = (typeof(globalThis.BroadcastChannel)!=="undefined")
-//console.info(`[info]isWindow: ${iswin}, isServiceWorker: ${issw}, canBroadcastChannel: ${canbcc}`)
+//console.info(`[info]isWindow:${iswin}, isServiceWorker:${issw}, canBroadcastChannel:${canbcc}`)
 
 
 
@@ -80,7 +80,7 @@ let localStorageSetFuncs=[]
 //----
 // sample
 localStorageSetFuncs.push((p, v)=>{
-  console.log("set " + localStorageName + "." + p + ": " + v)
+  console.log("set " + localStorageName + "." + p + ":" + v)
 })
 */
 
@@ -93,7 +93,7 @@ const localStorageSetFix=(jo)=>{
 
 const localStorageFunc=(obj)=>{
   if (iswin) {
-    let jo = {"app": obj}
+    let jo = {"app":obj}
     localStorageSetFix(jo)
     js = JSON.stringify(jo)
     localStorage[localStorageKey] = js
@@ -139,7 +139,7 @@ const localStorageHandler = {
         if (typeof(getref)!=="undefined") {
           return getref
         } else {
-          return localStoragePromiseRes({ "type": "getreq", "args": {"p":p} })
+          return localStoragePromiseRes({ "type":"getreq", "args":{"p":p} })
         }
       } else {
         return Reflect.get(t, p, r)
@@ -158,7 +158,7 @@ const localStorageHandler = {
         if (js) {
           jo = JSON.parse(js)
         } else {
-          jo = {"app": {}}
+          jo = {"app":{}}
         }
         if (isLocalStoragePrefix(p)) {
           jo[getLocalStoragePrefixDel(p)] = v
@@ -176,7 +176,7 @@ const localStorageHandler = {
         }
       } else if (canbcc) {
         Reflect.set(t, p, v, r)
-        return localStoragePromiseRes({ "type": "setreq", "args": {"p":p, "v":v} })
+        return localStoragePromiseRes({ "type":"setreq", "args":{"p":p, "v":v} })
       } else {
         return Reflect.set(t, p, v, r)
       }
@@ -206,7 +206,7 @@ const localStorageHandler = {
         return Reflect.deleteProperty(t, p)
       } else if (canbcc) {
         Reflect.deleteProperty(t, p)
-        return localStoragePromiseRes({ "type": "delreq", "args": {"p":p} })
+        return localStoragePromiseRes({ "type":"delreq", "args":{"p":p} })
       } else {
         return Reflect.deleteProperty(t, p)
       }
@@ -227,11 +227,11 @@ const initstorage=()=>{
 
 if (canbcc && issw) {
   bcc.onmessageerror=(event)=>{
-    console.info(`sw.onmessageerror: event: ${event.data}`)
+    console.info(`sw.onmessageerror(event):${event.data}`)
   }
   bcc.onmessage=(event)=>{
-    //console.info(`sw.onmessage: event: ${event.data}`)
-    //console.info(`sw.onmessage: event: type:${event.data.type}, v.app_win:${event.data.args.v.app_win}`)
+    //console.info(`sw.onmessage(event):${event.data}`)
+    //console.info(`sw.onmessage(event):type:${event.data.type}, v.app_win:${event.data.args.v.app_win}`)
     switch (event.data.type) {
       case "getres":
         resbcc=event.data.value
@@ -250,25 +250,25 @@ if (canbcc && issw) {
 
 if (canbcc && iswin) {
   bcc.onmessageerror=(event)=>{
-    console.info(`win.onmessageerror: event: ${event.data}`)
+    console.info(`win.onmessageerror(event):${event.data}`)
   }
   bcc.onmessage=(event)=>{
-    //console.info(`win.onmessage: event: ${event.data.args}`)
-    //console.info(`win.onmessage: event: type:${event.data.type}, p:${event.data.args.p}`)
+    //console.info(`win.onmessage(event):${event.data.args}`)
+    //console.info(`win.onmessage(event):type:${event.data.type}, p:${event.data.args.p}`)
     switch (event.data.type) {
       case "log":
         console.log(event.data.args)
         break
       case "getreq":
-        bcc.postMessage({ "type": "getres", "status": true, "value": storage[event.data.args.p] })
+        bcc.postMessage({ "type":"getres", "status":true, "value":storage[event.data.args.p] })
         break
       case "setreq":
         storage[event.data.args.p] = event.data.args.v
-        bcc.postMessage({ "type": "setres", "status": true })
+        bcc.postMessage({ "type":"setres", "status":true })
         break
       case "delreq":
         delete storage[event.data.args.p]
-        bcc.postMessage({ "type": "delres", "status": true })
+        bcc.postMessage({ "type":"delres", "status":true })
         break
       default:
         break
@@ -300,7 +300,7 @@ const addconsole=()=>{
             storage._log = (typeof(storage._log)==="undefined") ? htmllog : storage._log + htmllog
           }
         } else {
-          if (canbcc) bcc.postMessage({"type": "log", "args": arg})
+          if (canbcc) bcc.postMessage({"type":"log", "args":arg})
         }
       })
     },
@@ -313,221 +313,221 @@ document.body.insertAdjacentHTML("beforeend", String.raw`
 <style>
 
 #${p}console {
-  text-size-adjust: 100%;
-  -webkit-text-size-adjust: 100%;
-  position: fixed;
-  right: 30px;
-  left: inherit;
-  top: inherit;
-  bottom: 30px;
-  display: flex;
-  flex-distoragetion: column;
-  z-index: 9999;
+  text-size-adjust:100%;
+  -webkit-text-size-adjust:100%;
+  position:fixed;
+  right:30px;
+  left:inherit;
+  top:inherit;
+  bottom:30px;
+  display:flex;
+  flex-distoragetion:column;
+  z-index:9999;
 }
 
 #${p}viewer {
-  font-size: 0.75rem;
-  font-family: Menlo,consolas,monospace;
-  background: #ffffff;
-  position: fixed;
-  right: 0px;
-  left: inherit;
-  top: inherit;
-  bottom: 0px;
-  width: 100%;
-  height: 100%;
-  overflow: auto;
+  font-size:0.75rem;
+  font-family:Menlo,consolas,monospace;
+  background:#ffffff;
+  position:fixed;
+  right:0px;
+  left:inherit;
+  top:inherit;
+  bottom:0px;
+  width:100%;
+  height:100%;
+  overflow:auto;
   overflow-x:hidden;
-  word-break: break-all;
-  justify-content: flex-end;
-  -webkit-overflow-scrolling: touch;
-  transition: all 0.5s ease;
+  word-break:break-all;
+  justify-content:flex-end;
+  -webkit-overflow-scrolling:touch;
+  transition:all 0.5s ease;
 }
-@media (min-width: 650px) and (min-height: 650px) {
+@media (min-width:650px) and (min-height:650px) {
   #${p}viewer {
-    right: 100px;
-    left: inherit;
-    top: inherit;
-    bottom: 60px;
-    width: 80%;
-    height: 80%;
-    max-width: 600px;
-    max-height: 800px;
-    box-shadow: 0 0 3px 0 rgb(0 0 0 / 12%), 0 2px 3px 0 rgb(0 0 0 / 22%);
-    border-radius: 3px;
+    right:100px;
+    left:inherit;
+    top:inherit;
+    bottom:60px;
+    width:80%;
+    height:80%;
+    max-width:600px;
+    max-height:800px;
+    box-shadow:0 0 3px 0 rgb(0 0 0 / 12%), 0 2px 3px 0 rgb(0 0 0 / 22%);
+    border-radius:3px;
   }
 }
 
 .${p}blankspace {
-  width: 100%;
-  margin: 0;
-  position: relative;
+  width:100%;
+  margin:0;
+  position:relative;
 }
 
 .${p}line {
-  margin: 0;
-  line-height: 1.2rem;
-  border-bottom: 1px solid #eee;
-  position: relative;
+  margin:0;
+  line-height:1.2rem;
+  border-bottom:1px solid #eee;
+  position:relative;
 }
 
 .${p}str {
-  margin: 0 5px 0 5px;
-  line-height: 1.2rem;
+  margin:0 5px 0 5px;
+  line-height:1.2rem;
 }
 
 .${p}ver {
-  text-align: right;
+  text-align:right;
 }
 
 .${p}cmd {
-  font-weight: 900;
-  color: #314de7
+  font-weight:900;
+  color:#314de7
 }
 
 #${p}cmdslnow {
-  font-weight: 900;
-  color: #314de7
+  font-weight:900;
+  color:#314de7
 }
 
 #${p}cmd {
-  font-size: 0.75rem;
-  font-family: Menlo,consolas,monospace;
-  margin: 0;
-  padding: 0;
-  border: none;
-  outline: none;
+  font-size:0.75rem;
+  font-family:Menlo,consolas,monospace;
+  margin:0;
+  padding:0;
+  border:none;
+  outline:none;
 }
 
 .${p}btn {
-  display: flex;
-  align-items: baseline;
-  transition: all 0.5s ease;
-  position: relative;
+  display:flex;
+  align-items:baseline;
+  transition:all 0.5s ease;
+  position:relative;
 }
 .${p}btn a {
-  font-family: Menlo,consolas,monospace;
-  font-weight: 900;
-  color: #ffffff;
-  background: #b6b6b6;
-  width: 58px;
-  height: 58px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 9999px;
-  box-shadow: 0 0 6px 0 rgb(0 0 0 / 15%), 0 4px 5px 0 rgb(0 0 0 / 22%);
-  position: relative;
-  cursor: pointer;
+  font-family:Menlo,consolas,monospace;
+  font-weight:900;
+  color:#ffffff;
+  background:#b6b6b6;
+  width:58px;
+  height:58px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:9999px;
+  box-shadow:0 0 6px 0 rgb(0 0 0 / 15%), 0 4px 5px 0 rgb(0 0 0 / 22%);
+  position:relative;
+  cursor:pointer;
 }
 
 .${p}btn a:before {
-  z-index: 2;
-  transform: translate(-50%, -50%);
+  z-index:2;
+  transform:translate(-50%, -50%);
 }
 
 .${p}menu {
-  font-size: 1.5rem;
-  margin-bottom: 15px;
+  font-size:1.5rem;
+  margin-bottom:15px;
 }
 
 #${p}toggle a:before {
-  font-size: 1.7rem;
-  content: "－";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  z-index: 1;
+  font-size:1.7rem;
+  content:"－";
+  position:absolute;
+  top:50%;
+  left:50%;
+  z-index:1;
 }
 
 #${p}console.${p}hide > #${p}viewer {
-  right: 50px;
-  bottom: 50px;
-  width: 0;
-  height: 0;
+  right:50px;
+  bottom:50px;
+  width:0;
+  height:0;
 }
 
 #${p}console.${p}hide > .${p}menu {
-  margin-bottom: 0;
-  height: 0;
+  margin-bottom:0;
+  height:0;
 }
 
 #${p}console.${p}hide > #${p}toggle a:before {
-  content: "＋";
+  content:"＋";
 }
 
 
 
 #${p}console.${p}hide.${p}right-bottom {
-  right: calc(30px - ${storage._settings.posx}px);
-  left: inherit;
-  top: inherit;
-  bottom: calc(30px - ${storage._settings.posy}px);
-  transition: all 0.5s ease;
+  right:calc(30px - ${storage._settings.posx}px);
+  left:inherit;
+  top:inherit;
+  bottom:calc(30px - ${storage._settings.posy}px);
+  transition:all 0.5s ease;
 }
 
 #${p}console.${p}hide.${p}right-bottom > #${p}viewer {
-  right: calc(60px - ${storage._settings.posx}px);
-  left: inherit;
-  top: inherit;
-  bottom: calc(60px - ${storage._settings.posy}px);
+  right:calc(60px - ${storage._settings.posx}px);
+  left:inherit;
+  top:inherit;
+  bottom:calc(60px - ${storage._settings.posy}px);
 }
 
 
 
 #${p}console.${p}hide.${p}right-top {
-  right: calc(30px - ${storage._settings.posx}px);
-  left: inherit;
-  top: calc(30px + ${storage._settings.posy}px);
-  bottom: inherit;
-  transition: all 0.5s ease;
+  right:calc(30px - ${storage._settings.posx}px);
+  left:inherit;
+  top:calc(30px + ${storage._settings.posy}px);
+  bottom:inherit;
+  transition:all 0.5s ease;
 }
 
 #${p}console.${p}hide.${p}right-top > #${p}viewer {
-  right: calc(60px - ${storage._settings.posx}px);
-  left: inherit;
-  top: calc(60px + ${storage._settings.posy}px);
-  bottom: inherit;
+  right:calc(60px - ${storage._settings.posx}px);
+  left:inherit;
+  top:calc(60px + ${storage._settings.posy}px);
+  bottom:inherit;
 }
 
 
 
 #${p}console.${p}hide.${p}left-bottom {
-  right: inherit;
-  left: calc(30px + ${storage._settings.posx}px);
-  top: inherit;
-  bottom: calc(30px - ${storage._settings.posy}px);
-  transition: all 0.5s ease;
+  right:inherit;
+  left:calc(30px + ${storage._settings.posx}px);
+  top:inherit;
+  bottom:calc(30px - ${storage._settings.posy}px);
+  transition:all 0.5s ease;
 }
 
 #${p}console.${p}hide.${p}left-bottom > #${p}viewer {
-  right: inherit;
-  left: calc(60px + ${storage._settings.posx}px);
-  top: inherit;
-  bottom: calc(60px - ${storage._settings.posy}px);
+  right:inherit;
+  left:calc(60px + ${storage._settings.posx}px);
+  top:inherit;
+  bottom:calc(60px - ${storage._settings.posy}px);
 }
 
 
 
 #${p}console.${p}hide.${p}left-top {
-  right: inherit;
-  left: calc(30px + ${storage._settings.posx}px);
-  top: calc(30px + ${storage._settings.posy}px);
-  bottom: inherit;
-  transition: all 0.5s ease;
+  right:inherit;
+  left:calc(30px + ${storage._settings.posx}px);
+  top:calc(30px + ${storage._settings.posy}px);
+  bottom:inherit;
+  transition:all 0.5s ease;
 }
 
 #${p}console.${p}hide.${p}left-top > #${p}viewer {
-  right: inherit;
-  left: calc(60px + ${storage._settings.posx}px);
-  top: calc(60px + ${storage._settings.posy}px);
-  bottom: inherit;
+  right:inherit;
+  left:calc(60px + ${storage._settings.posx}px);
+  top:calc(60px + ${storage._settings.posy}px);
+  bottom:inherit;
 }
 
 
 
 #${p}console.${p}hidetoggle > #${p}toggle {
-  opacity: 0;
+  opacity:0;
 }
 
 </style>
@@ -539,18 +539,18 @@ document.body.insertAdjacentHTML("beforeend", String.raw`
     </div>
     <div class="${p}blankspace">
       <div class="${p}str">&ensp;</div>
-      <div class="${p}str">&ensp;<span id="${p}cmdvw" class="${p}cmd">@vw</span>: view service worker</div>
-      <div class="${p}str">&ensp;<span id="${p}cmddw" class="${p}cmd">@dw</span>: delete service worker</div>
-      <div class="${p}str">&ensp;<span id="${p}cmdvc" class="${p}cmd">@vc</span>: view cache</div>
-      <div class="${p}str">&ensp;<span id="${p}cmddc" class="${p}cmd">@dc</span>: delete cache</div>
-      <div class="${p}str">&ensp;<span id="${p}cmdvs" class="${p}cmd">@vs</span>: view storage</div>
-      <div class="${p}str">&ensp;<span id="${p}cmdds" class="${p}cmd">@ds</span>: delete storage</div>
-      <div class="${p}str">&ensp;<span id="${p}cmdsl" class="${p}cmd">@sl</span>: storage log (currently <span id="${p}cmdslnow">${getUsestoragelogStr()}</span>)</div>
-      <div class="${p}str">&ensp;<span id="${p}cmddl" class="${p}cmd">@dl</span>: delete log</div>
-      <div class="${p}str">&ensp;<span id="${p}cmdcu" class="${p}cmd">@cu</span>: change URL</div>
-      <div class="${p}str">&ensp;<span id="${p}cmdse" class="${p}cmd">@se</span>: send to URL</div>
-      <div class="${p}str">&ensp;<span id="${p}cmdre" class="${p}cmd">@re</span>: receive from URL</div>
-      <div class="${p}str">&ensp;<span id="${p}cmdra" class="${p}cmd">@ra</span>: reload app</div>
+      <div class="${p}str">&ensp;<span id="${p}cmdvw" class="${p}cmd">@vw</span> view service worker</div>
+      <div class="${p}str">&ensp;<span id="${p}cmddw" class="${p}cmd">@dw</span> delete service worker</div>
+      <div class="${p}str">&ensp;<span id="${p}cmdvc" class="${p}cmd">@vc</span> view cache</div>
+      <div class="${p}str">&ensp;<span id="${p}cmddc" class="${p}cmd">@dc</span> delete cache</div>
+      <div class="${p}str">&ensp;<span id="${p}cmdvs" class="${p}cmd">@vs</span> view storage</div>
+      <div class="${p}str">&ensp;<span id="${p}cmdds" class="${p}cmd">@ds</span> delete storage</div>
+      <div class="${p}str">&ensp;<span id="${p}cmdsl" class="${p}cmd">@sl</span> storage log (currently <span id="${p}cmdslnow">${getUsestoragelogStr()}</span>)</div>
+      <div class="${p}str">&ensp;<span id="${p}cmddl" class="${p}cmd">@dl</span> delete log</div>
+      <div class="${p}str">&ensp;<span id="${p}cmdcu" class="${p}cmd">@cu</span> change URL</div>
+      <div class="${p}str">&ensp;<span id="${p}cmdse" class="${p}cmd">@se</span> send to URL</div>
+      <div class="${p}str">&ensp;<span id="${p}cmdre" class="${p}cmd">@re</span> receive from URL</div>
+      <div class="${p}str">&ensp;<span id="${p}cmdra" class="${p}cmd">@ra</span> reload app</div>
       <div class="${p}str ${p}ver">${VERSION}&ensp;</div>
     </div>
   </div>
@@ -589,11 +589,11 @@ const viewsw=()=>{
 }
 
 const delsw=()=>{
-  console.log( "&ensp;<&ensp;" + "delete service worker: start" )
+  console.log( "&ensp;<&ensp;" + "delete service worker start" )
   navigator.serviceWorker.getRegistration()
   .then(registration=>registration.unregister())
-  .catch(err=>console.log( "&ensp;<&ensp;" + "delete service worker: catch(e):" + err))
-  .finally(()=>console.log( "&ensp;<&ensp;" + "delete service worker: end" ))
+  .catch(err=>console.log( "&ensp;<&ensp;" + "delete service worker catch(e): " + err))
+  .finally(()=>console.log( "&ensp;<&ensp;" + "delete service worker end" ))
 }
 
 const actCache=async(msg, fdel)=>{
@@ -628,25 +628,25 @@ const delCache=async()=>{
 }
 
 const doPost = async(req, url=storage._posturl) => { //jsonオブジェクトを渡して、jsonオブジェクトで返る
-  console.log( "&ensp;<&ensp;" + "doPost: start" )
+  console.log( "&ensp;<&ensp;" + "doPost start" )
   try {
     if (!navigator.onLine) throw "offline now"
     try {new URL(url)} catch {throw "url error"}
     const js = await fetch(url, {
-      "method": "post",
-      "Content-Type": "application/json",
-      "body": JSON.stringify(req),
+      "method":"post",
+      "Content-Type":"application/json",
+      "body":JSON.stringify(req),
     })
     const jo = await js.json()
     if (jo.status == "OK") {
-      console.log( "&ensp;<&ensp;" + "doPost: end" )
+      console.log( "&ensp;<&ensp;" + "doPost end" )
       return jo.data
     } else {
-      console.log( "&ensp;<&ensp;" + "doPost: error: "  + JSON.stringify(jo) )
+      console.log( "&ensp;<&ensp;" + "doPost error: "  + JSON.stringify(jo) )
       throw "response ng"
     }
   } catch(e) {
-    console.log( "&ensp;<&ensp;" + "doPost: catch(e): "  + e )
+    console.log( "&ensp;<&ensp;" + "doPost catch(e): "  + e )
     throw e
   }
 }
@@ -700,13 +700,13 @@ const send=async()=>{
   try {
     storage._sendtime = getDateTime()
     const jo = await doPost({
-      "action": "set",
-      "data": JSON.parse(localStorage[localStorageKey]),
+      "action":"set",
+      "data":JSON.parse(localStorage[localStorageKey]),
     })
-    console.log( "&ensp;<&ensp;" + "send: success, postname: " + jo.postname )
+    console.log( "&ensp;<&ensp;" + "send success, postname:" + jo.postname )
     storage._postname=(storage._postname)?storage._postname:jo.postname
   } catch(e) {
-    console.log( "&ensp;<&ensp;" + "send: catch(e): " + e )
+    console.log( "&ensp;<&ensp;" + "send catch(e): " + e )
     alert(e)
   }
 }
@@ -715,16 +715,16 @@ const recv=async()=>{
   console.log( "&ensp;<&ensp;" + "receive..." )
   try {
     const jo = await doPost({
-      "action": "get",
-      "data": {
-        "postname": storage._postname,
+      "action":"get",
+      "data":{
+        "postname":storage._postname,
       },
     })
-    console.log( "&ensp;<&ensp;" + "receive: success, postname: " + jo.postname )
+    console.log( "&ensp;<&ensp;" + "receive success, postname:" + jo.postname )
     storage._recvtime = getDateTime()
     storage._app=(jo.app)?jo.app:storage._app
   } catch(e) {
-    console.log( "&ensp;<&ensp;" + "receive: catch(e): " + e )
+    console.log( "&ensp;<&ensp;" + "receive catch(e): " + e )
     alert(e)
   }
 }
@@ -746,7 +746,7 @@ const addevents=()=>{
   localStorageSetFuncs.push(()=>{if(isshow)view()})
 
   document.getElementById(`${p}toggle`).addEventListener("click",()=>{
-    console.log("toggle: click")
+    console.log("toggle click")
     isshow=(isshow)?false:true
     if (isshow) view()
     const rapper = document.getElementById(`${p}console`)
@@ -757,11 +757,11 @@ const addevents=()=>{
 
 /*
   document.getElementById(`${p}menu1`).addEventListener("click",()=>{
-    console.log("menu1: click")
+    console.log("menu1 click")
   })
 
   document.getElementById(`${p}menu2`).addEventListener("click",()=>{
-    console.log("menu2: click")
+    console.log("menu2 click")
   })
 */
 
@@ -791,9 +791,9 @@ const addevents=()=>{
               viewstorage()
               break
             case "@ds":
-              console.log( "&ensp;<&ensp;" + "delete storage: start" )
+              console.log( "&ensp;<&ensp;" + "delete storage start" )
               initstorage()
-              console.log( "&ensp;<&ensp;" + "delete storage: end" )
+              console.log( "&ensp;<&ensp;" + "delete storage end" )
               break
             case "@sl":
               storage._usestoragelog=(typeof(storage._usestoragelog)==="undefined")?true:!storage._usestoragelog
@@ -805,10 +805,10 @@ const addevents=()=>{
               storage._usestoragelog = tmp_usestoragelog
               break
             case "@dl":
-              console.log( "&ensp;<&ensp;" + "delete log: start" )
+              console.log( "&ensp;<&ensp;" + "delete log start" )
               storage._log = ""
               document.getElementById(`${p}viewerspan`).innerHTML = ""
-              console.log( "&ensp;<&ensp;" + "delete log: end" )
+              console.log( "&ensp;<&ensp;" + "delete log end" )
               break
             case "@cu":
               changeurl()
@@ -858,15 +858,15 @@ const settings=(args={})=>{
     if (!storage._settings.show) hideToggle()
 
   }
-  console.log(`Console.settings: ${JSON.stringify(args)}, isWindow: ${iswin}, isServiceWorker: ${issw}, canBroadcastChannel: ${canbcc}`)
+  console.log(`Console.settings:${JSON.stringify(args)}, isWindow:${iswin}, isServiceWorker:${issw}, canBroadcastChannel:${canbcc}`)
 }
 
 
 
 globalThis.Console={
-  settings: settings,
-  storage: storage,
-  setfuncs: localStorageSetFuncs,
+  "settings":settings,
+  "storage":storage,
+  "setfuncs":localStorageSetFuncs,
 }
 
 })()
