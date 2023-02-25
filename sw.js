@@ -2,11 +2,11 @@
 (async()=>{
 importScripts("./Console.js")
 let app = await Console.storage
-await(app.versw = "0.2.0")
+await(app.versw = "0.4.0")
 
 
 
-console.log("sw.js start")
+console.log("[sw]sw.js start")
 
 const cacheName = registration.scope
 const cacheItems = [
@@ -18,16 +18,22 @@ const cacheItems = [
 ]
 
 self.addEventListener("install", async(event)=>{
-  console.log("sw.js install")
+  console.log("[sw]install start")
   event.waitUntil((async()=>{
     const cache = await caches.open(cacheName)
-    return cache.addAll(cacheItems)
+    const res = await cache.addAll(cacheItems)
+    console.log("[sw]install end")
+    return res
   })())
 })
 
 self.addEventListener("activate", async(event)=>{
-  console.log("sw.js activate")
-  event.waitUntil(self.clients.claim())
+  console.log("[sw]activate start")
+  event.waitUntil((async()=>{
+    const res = await self.clients.claim()
+    console.log("[sw]activate end")
+    return res
+  })())
 })
 
 self.addEventListener("fetch", async(event)=>{
@@ -44,7 +50,7 @@ self.addEventListener("fetch", async(event)=>{
 const wait=async(ms)=>new Promise(resolve=>setTimeout(resolve, ms))
 
 console.log("[sw]wait start")
-await wait(2000)
+await wait(5000)
 console.log("[sw]wait end")
 
 await(app.sw1 = 1)
@@ -79,6 +85,6 @@ await Object.keys(app).forEach(async(k)=>{
 console.log(`[sw]app all: ${appall}`)
 
 
-console.log("sw.js end")
+console.log("[sw]sw.js end")
 
 })()
