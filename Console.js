@@ -1,7 +1,7 @@
 "use strict";
 (()=>{
 
-const VERSION = "0.2.0";
+const VERSION = "0.3.0";
 
 //const p = ((Math.random()*26)+10).toString(36).replace(".","")
 
@@ -72,7 +72,7 @@ const getPrefix=()=>{
 const localStorageName = "Console.js"
 const localStorageKey = getPrefix() + localStorageName
 
-let bcc, resbcc
+let bcc, resbcc, fresbcc=false
 if (canbcc) bcc = new BroadcastChannel(localStorageKey)
 
 let localStorageSetFuncs=[]
@@ -100,17 +100,20 @@ const localStorageFunc=(obj)=>{
   }
 }
 
-const localStoragePromiseRes=()=>{
-  resbcc=null
+const localStoragePromiseRes=(obj)=>{
   return (async()=>{
-    const s=new Date(), w=50, t=1000, wait=async(ms)=>new Promise(resolve=>setTimeout(resolve, ms))
+    const w=50, t=1000, wait=async(ms)=>new Promise(resolve=>setTimeout(resolve, ms))
+    let res=undefined, s=new Date()
+    if (fresbcc) while (fresbcc && new Date()-s < t) await wait(w)
+    if (fresbcc) return res
+    fresbcc=true
+    resbcc=null
+    bcc.postMessage(obj)
+    s = new Date()
     while (resbcc===null && new Date()-s < t) await wait(w)
-    if (resbcc!==null) {
-      //console.info(resbcc)
-      return resbcc
-    } else {
-      return undefined
-    }
+    if (resbcc!==null) res = resbcc
+    fresbcc=false
+    return res
   })()
 }
 
@@ -136,8 +139,7 @@ const localStorageHandler = {
         if (typeof(getref)!=="undefined") {
           return getref
         } else {
-          bcc.postMessage({ "type": "getreq", "args": {"p":p} })
-          return localStoragePromiseRes()
+          return localStoragePromiseRes({ "type": "getreq", "args": {"p":p} })
         }
       } else {
         return Reflect.get(t, p, r)
@@ -174,8 +176,7 @@ const localStorageHandler = {
         }
       } else if (canbcc) {
         Reflect.set(t, p, v, r)
-        bcc.postMessage({ "type": "setreq", "args": {"p":p, "v":v} })
-        return localStoragePromiseRes()
+        return localStoragePromiseRes({ "type": "setreq", "args": {"p":p, "v":v} })
       } else {
         return Reflect.set(t, p, v, r)
       }
@@ -205,8 +206,7 @@ const localStorageHandler = {
         return Reflect.deleteProperty(t, p)
       } else if (canbcc) {
         Reflect.deleteProperty(t, p)
-        bcc.postMessage({ "type": "delreq", "args": {"p":p} })
-        return localStoragePromiseRes()
+        return localStoragePromiseRes({ "type": "delreq", "args": {"p":p} })
       } else {
         return Reflect.deleteProperty(t, p)
       }
