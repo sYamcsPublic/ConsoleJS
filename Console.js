@@ -1,7 +1,7 @@
 "use strict";
 (()=>{
 
-const VERSION = "0.1.0";
+const VERSION = "0.2.0";
 
 //const p = ((Math.random()*26)+10).toString(36).replace(".","")
 
@@ -132,8 +132,13 @@ const localStorageHandler = {
           return undefined
         }
       } else if (canbcc) {
-        bcc.postMessage({ "type": "getreq", "args": {"p":p} })
-        return localStoragePromiseRes()
+        const getref = Reflect.get(t, p, r)
+        if (typeof(getref)!=="undefined") {
+          return getref
+        } else {
+          bcc.postMessage({ "type": "getreq", "args": {"p":p} })
+          return localStoragePromiseRes()
+        }
       } else {
         return Reflect.get(t, p, r)
       }
@@ -168,6 +173,7 @@ const localStorageHandler = {
           return Reflect.set(t, p, v, r)
         }
       } else if (canbcc) {
+        Reflect.set(t, p, v, r)
         bcc.postMessage({ "type": "setreq", "args": {"p":p, "v":v} })
         return localStoragePromiseRes()
       } else {
@@ -198,6 +204,7 @@ const localStorageHandler = {
         }
         return Reflect.deleteProperty(t, p)
       } else if (canbcc) {
+        Reflect.deleteProperty(t, p)
         bcc.postMessage({ "type": "delreq", "args": {"p":p} })
         return localStoragePromiseRes()
       } else {
