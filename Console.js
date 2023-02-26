@@ -1,7 +1,7 @@
 "use strict";
 (()=>{
 
-const VERSION = "0.4.0";
+const VERSION = "0.5.0";
 
 //const p = ((Math.random()*26)+10).toString(36).replace(".","")
 
@@ -870,9 +870,4 @@ globalThis.Console={
 }
 
 })()
-
-if (typeof(window)!=="undefined") {
-  window.addEventListener("DOMContentLoaded", ()=>Console.settings(), true)
-} else {
-  Console.settings()
-}
+Console.settings()

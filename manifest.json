@@ -2,8 +2,6 @@
   "name": "Console.js - sample",
   "scope": "./",
   "start_url": "./",
-  "theme_color": "#cdddbd",
-  "background_color": "#ffffff",
   "display": "standalone",
   "icons": [
     {
