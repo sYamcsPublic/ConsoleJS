@@ -2,7 +2,7 @@
 (async()=>{
 importScripts("./Console.js")
 let app = await Console.storage
-app.versw = "0.6.0"
+app.versw = "0.7.0"
 console.info("[info]sw.js start")
 console.log("[sw]sw.js start")
 
@@ -11,6 +11,7 @@ console.log("[sw]sw.js start")
 const cacheName = registration.scope
 const cacheItems = [
   "./Console.js",
+  "./win.js",
   "./sw.js",
   "./icon.png",
   "./manifest.json",
