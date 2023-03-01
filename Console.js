@@ -1,6 +1,6 @@
 "use strict";
 globalThis.Console=async(args={})=>{
-const VERSION = "0.8.0"
+const VERSION = "0.9.0"
 const iswin = (typeof(window)!=="undefined")
 const issw  = (typeof(ServiceWorkerGlobalScope)!=="undefined")
 const canbcc = (typeof(globalThis.BroadcastChannel)!=="undefined")
@@ -820,6 +820,7 @@ const addevents=async()=>{
       let input=document.getElementById(`${p}cmd`).value
       console.log( "&ensp;>&ensp;" + input )
       if (input!="") {
+        if (input!="@") await storage.set("_precmd", input)
         if (typeof(input)=="string" && input.substring(0,1)=="@") {
           switch (input) {
             case "@":
@@ -890,12 +891,11 @@ const addevents=async()=>{
           }
         }
       }
-      if (input=="@") {
+      if (input!="@") {
+        document.getElementById(`${p}cmd`).value=""
+      } else {
         const precmd = await storage.get("_precmd")
         document.getElementById(`${p}cmd`).value = (typeof(precmd)==="undefined")?"":precmd
-      } else {
-        await storage.set("_precmd", document.getElementById(`${p}cmd`).value)
-        document.getElementById(`${p}cmd`).value=""
       }
     }
   })
