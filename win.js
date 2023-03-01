@@ -2,7 +2,7 @@
 (async()=>{
 //const app = await Console({show:false, pos:"left-top", posx:-65, posy:-65})
 const app = await Console()
-app.verwin = "0.3.0"
+await app.set("verwin", "0.4.0")
 console.info("[info]win.js start")
 console.log("win.js start")
 
@@ -38,14 +38,13 @@ console.log("app.arr=[1,2] -> arr[0]:" + arr[0])
 
 console.log("---- app watch")
 let a = await app()
-console.log(`app:${JSON.stringify(a.app)}`)
+console.log(`app:${JSON.stringify((await app()).app)}`)
 
 
 
 console.log("---- delete app.x1")
 await app.delete("x1")
-a = await app()
-console.log(`app:${JSON.stringify(a.app)}`)
+console.log(`app:${JSON.stringify((await app()).app)}`)
 
 
 

@@ -45,7 +45,7 @@ self.addEventListener("fetch", (event)=>{
 ;(async()=>{
 importScripts("./Console.js")
 const app = await Console()
-app.versw = "0.9.0"
+await app.set("versw", "0.10.0")
 
 
 
@@ -65,8 +65,7 @@ const sample_app=async()=>{
 
   console.log(`[sw]app.count:${await app.get("count")}`)
 
-  let a = await app()
-  console.log(`[sw]app:${JSON.stringify(a.app)}`)
+  console.log(`[sw]app:${JSON.stringify((await app()).app)}`)
 
   console.log("[sw]sample app end")
 }
