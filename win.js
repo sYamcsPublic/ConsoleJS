@@ -1,98 +1,60 @@
 "use strict";
-(()=>{
-//Console.settings({show:false, pos:"left-top", posx:-65, posy:-65})
-//Console.settings({pos:"left-bottom"})
-let app = Console.storage
-app.verwin = "0.2.0"
+(async()=>{
+//const app = await Console({show:false, pos:"left-top", posx:-65, posy:-65})
+const app = await Console()
+app.verwin = "0.3.0"
+console.info("[info]win.js start")
 console.log("win.js start")
 
 
 
-console.log("---- type primitive : directChange OK / indirectChange OK")
+console.log("---- type primitive")
 
-app.x = 1
-console.log("app.x=1 -> x:" + Console.storage.x)
+await app.set("x1", 1)
+let x1 = await Console.storage.get("x1")
+console.log("app.x1=1 -> x1:" + x1)
 
-app.x++
-console.log("app.x++ -> x:" + Console.storage.x)
-
-let x = app.x; x++; app.x = x
-console.log("x=app.x; x++; app.x=x -> x:" + Console.storage.x)
-
-
-
-console.log("---- type object : directChange NG / indirectChange OK")
-
-app.obj = {x:1}
-console.log("app.obj={x:1} -> obj.x:" + Console.storage.obj.x)
-
-app.obj.x++
-console.log("app.obj.x++ -> obj.x:" + Console.storage.obj.x)
-
-let obj = app.obj; obj.x++; app.obj = obj
-console.log("obj=app.obj; obj.x++; app.obj=obj -> obj.x:" + Console.storage.obj.x)
+await app.set("x2", 2)
+let x2 = await Console.storage.get("x2")
+console.log("app.x2=2 -> x2:" + x2)
 
 
 
-console.log("---- type array : direct change NG / indirectChange OK")
+console.log("---- type object")
 
-app.arr = [1, 2]
-console.log("app.arr=[1,2] -> arr[0]:" + Console.storage.arr[0])
+await app.set("obj", {x:1})
+let obj = await Console.storage.get("obj")
+console.log("app.obj={x:1} -> obj.x:" + obj.x)
 
-app.arr[0]++
-console.log("app.arr[0]++ -> arr[0]:" + Console.storage.arr[0])
 
-let arr = app.arr; arr[0]++; app.arr=arr
-console.log("arr=app.arr; arr[0]++; app.arr=arr -> arr[0]:" + Console.storage.arr[0])
+
+console.log("---- type array")
+
+await app.set("arr", [1, 2])
+let arr = await Console.storage.get("arr")
+console.log("app.arr=[1,2] -> arr[0]:" + arr[0])
 
 
 
 console.log("---- app watch")
-
-/*
-console.log(app) // <- [Object Function]
-console.log({app}) // <- [Object Object]
-//console.log({{app}}) // <- SyntaxError
-console.log(JSON.stringify(app)) // <- undefined
-console.log(JSON.stringify({app})) // <- {}
-*/
-
-const appwatch=()=>{
-  Object.keys(app).forEach(key=>{
-    //console.log(key)
-    if (typeof(app[key])=="object") {
-      console.log(key + ":" + JSON.stringify(app[key]))
-    } else {
-      console.log(key + ":" + app[key])
-    }
-  })
-}
-appwatch()
+let a = await app()
+console.log(`app:${JSON.stringify(a.app)}`)
 
 
 
-console.log("---- delete app.arr")
-delete app.arr
-appwatch()
-
-console.log("---- delete app.obj")
-delete app.obj
-appwatch()
-
-/*
-console.log("---- delete app.x")
-delete app.x
-appwatch()
-*/
+console.log("---- delete app.x1")
+await app.delete("x1")
+a = await app()
+console.log(`app:${JSON.stringify(a.app)}`)
 
 
 
 console.log("---- watch app._localtime")
-console.log(app._localtime)
+console.log(await app.get("_localtime"))
 
 
 
-const sample_app=()=>{
+const sample_app=async()=>{
   console.log("---- sample app start")
 
   document.body.insertAdjacentHTML("beforeend", String.raw`
@@ -128,22 +90,33 @@ const sample_app=()=>{
 </div>
   `)
 
-  app.recvtime = app._recvtime
-  app.count = (app.count==undefined) ? 0 : app.count
-  document.getElementById("show").innerHTML=app.count
-  console.log("app.count:" + app.count)
+  let _recvtime = await app.get("_recvtime")
+  //console.info(`_recvtime:${_recvtime}`)
+  await app.set("recvtime", _recvtime)
+  let count = await app.get("count")
+  count = (typeof(count)==="undefined") ? 0 : count
+  await app.set("count", count)
+  document.getElementById("show").innerHTML = count
+  console.log("app.count:" + count)
 
-  document.getElementById("show").addEventListener("click",()=>{
-    app.recvtime = app._recvtime
-    app.count = app.count + 1
-    document.getElementById("show").innerHTML=app.count
-    console.log("app.count:" + app.count)
+  document.getElementById("show").addEventListener("click",async()=>{
+    _recvtime = await app.get("_recvtime")
+    await app.set("recvtime", _recvtime)
+    count = await app.get("count")
+    count = count + 1
+    await app.set("count", count)
+    document.getElementById("show").innerHTML = count
+    console.log("app.count:" + count)
   })
 
-  Console.setfuncs.push(()=>{
-    if (app.recvtime!=app._recvtime) {
-      document.getElementById("show").innerHTML=app.count
-      console.info("[info]auto refresh app.count:" + app.count)
+  Console.setfuncs.push(async()=>{
+    const recvtime = await app.get("recvtime")
+    const _recvtime_org = await app.get("_recvtime")
+    const _recvtime=(typeof(_recvtime_org)!=="undefined")?_recvtime_org:""
+    if (recvtime!=_recvtime) {
+      count = await app.get("count")
+      document.getElementById("show").innerHTML = count
+      console.info("auto refresh app.count:" + count)
     }
   })
 

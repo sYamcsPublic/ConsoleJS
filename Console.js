@@ -1,14 +1,9 @@
 "use strict";
-(()=>{
-
-const VERSION = "0.5.0";
-
-//const p = ((Math.random()*26)+10).toString(36).replace(".","")
-
+globalThis.Console=async(args={})=>{
+const VERSION = "0.6.0"
 const iswin = (typeof(window)!=="undefined")
 const issw  = (typeof(ServiceWorkerGlobalScope)!=="undefined")
 const canbcc = (typeof(globalThis.BroadcastChannel)!=="undefined")
-//console.info(`[info]isWindow:${iswin}, isServiceWorker:${issw}, canBroadcastChannel:${canbcc}`)
 
 
 
@@ -69,211 +64,266 @@ const getPrefix=()=>{
 
 
 
-const localStorageName = "Console.js"
-const localStorageKey = getPrefix() + localStorageName
+const idbdict={}
+const idbfunc=(args={})=>{
 
-let bcc, resbcc, fresbcc=false
-if (canbcc) bcc = new BroadcastChannel(localStorageKey)
+  const version=(typeof(args.version)!=="undefined")?args.version:1
+  const dbname=(typeof(args.dbname)!=="undefined")?getPrefix()+args.dbname:getPrefix()
+  let objnames=[]
+  if (typeof(args.objnames)!=="undefined") {
+    objnames = [...args.objnames]
+  } else {
+    console.log("idb error: objnames not found")
+    return
+  }
 
-let localStorageSetFuncs=[]
+  idbdict.clear=()=>{
+    return new Promise((resolve, reject)=>{
+      const req = indexedDB.deleteDatabase(dbname)
+      req.onerror=()=>reject()
+      req.onsuccess=()=>resolve()
+    })
+  }
+
+  idbdict.obj=(storename)=>{
+
+    if (!objnames.includes(storename)) return undefined
+
+    const commonfunc=(f, k="", v="")=>{
+      return new Promise((resolve, reject)=>{
+        const req = indexedDB.open(dbname, version)
+        req.onerror=()=>reject()
+        req.onsuccess=(ev)=>{
+          let req
+          switch(f){
+            case "set":
+              req = ev.target.result.transaction(storename, "readwrite").objectStore(storename).put(v, k)
+              //console.info(`[set]k:${k},v:${v}`)
+              break
+            case "get":
+              req = ev.target.result.transaction(storename, "readonly").objectStore(storename).get(k)
+              break
+            case "getAllKeys":
+              req = ev.target.result.transaction(storename, "readonly").objectStore(storename).getAllKeys()
+              break
+            case "delete":
+              req = ev.target.result.transaction(storename, "readwrite").objectStore(storename).delete(k)
+              break
+            case "clear":
+              req = ev.target.result.transaction(storename, "readwrite").objectStore(storename).clear()
+              break
+            default:
+              break
+          }
+          req.onerror=()=>reject()
+          req.onsuccess=()=>{
+            ev.target.result.close()
+            resolve(req.result)
+          }
+        }
+      })
+    }
+
+    const storedict={}
+    storedict.set=(k, v)=>commonfunc("set", k, v)
+    storedict.get=(k)=>commonfunc("get", k)
+    storedict.getAllKeys=()=>commonfunc("getAllKeys")
+    storedict.delete=(k)=>commonfunc("delete", k)
+    storedict.clear=()=>commonfunc("clear")
+
+    const storefunc=(args)=>{
+      if (typeof(args)==="object") {
+        storedict.clear()
+        for(let key in args) storedict.set(key, args[key])
+      } else {
+        return new Promise((resolve, reject)=>{
+          storedict.getAllKeys().then(keys=>{
+            let promises=[], o={}
+            for(let key of keys) promises.push(storedict.get(key).then(v=>o[key]=v))
+            Promise.all(promises).then(()=>resolve(o))
+          })
+        })
+      }
+    }
+
+    return Object.assign(storefunc, {...storedict})
+  }
+
+  return new Promise((resolve, reject)=>{
+    const req = indexedDB.open(dbname, version)
+    req.onupgradeneeded=(ev)=>{
+      for(let objname of objnames) ev.target.result.createObjectStore(objname, {autoIncrement:false})
+    }
+    req.onerror=()=>reject()
+    req.onsuccess=(ev)=>{
+      ev.target.result.close()
+      resolve({...idbdict})
+    }
+  })
+}
+
+const idb=Object.assign(idbfunc, {...idbdict})
+
+
+
+const storageName = "Console.js"
+const storages = await idb({
+  "version": 1,
+  "dbname": storageName,
+  "objnames": [
+    "app",
+    "info",
+    "logsw",
+    "logwin",
+  ],
+})
+
+const storage_app = storages.obj("app")
+const storage_info = storages.obj("info")
+const storage_logsw = storages.obj("logsw")
+const storage_logwin = storages.obj("logwin")
+
+let storageSetFuncs=[]
 /*
-//----
-// sample
-localStorageSetFuncs.push((p, v)=>{
-  console.log("set " + localStorageName + "." + p + ":" + v)
+//sample
+storageSetFuncs.push((k, v)=>{
+  console.log("set " + storageName + "." + k + ":" + v)
 })
 */
 
-const isLocalStoragePrefix=(p)=>(typeof(p)=="string")?p.substring(0, 1)=="_":false
-const getLocalStoragePrefixDel=(p)=>p.substring(1)
+const isStoragePrefix=(k)=>(typeof(k)=="string")?k.substring(0, 1)=="_":false
+const getStoragePrefixDel=(k)=>k.substring(1)
 
-const localStorageSetFix=(jo)=>{
-  jo["localtime"] = getDateTime()
-}
-
-const localStorageFunc=(obj)=>{
-  if (iswin) {
-    let jo = {"app":obj}
-    localStorageSetFix(jo)
-    js = JSON.stringify(jo)
-    localStorage[localStorageKey] = js
-  }
-}
-
-const localStoragePromiseRes=(obj)=>{
-  return (async()=>{
-    const w=50, t=1000, wait=async(ms)=>new Promise(resolve=>setTimeout(resolve, ms))
-    let res=undefined, s=new Date()
-    if (fresbcc) while (fresbcc && new Date()-s < t) await wait(w)
-    if (fresbcc) return res
-    fresbcc=true
-    resbcc=null
-    bcc.postMessage(obj)
-    s = new Date()
-    while (resbcc===null && new Date()-s < t) await wait(w)
-    if (resbcc!==null) res = resbcc
-    fresbcc=false
-    return res
+let setque=[], setrunning=false
+const storagedict={}
+storagedict.set=async(k, v)=>{
+  setque.push([k, v])
+  await(()=>{
+    return new Promise(resolve=>{
+      setInterval(()=>{
+        if (!setrunning) resolve()
+      }, 1)
+    })
   })()
-}
-
-const localStorageHandler = {
-  get: (t, p, r)=>{
-    try {
-      if (iswin) {
-        let js = localStorage[localStorageKey]
-        if (js) {
-          let jo = JSON.parse(js)
-          let val
-          if (isLocalStoragePrefix(p)) {
-            val = jo[getLocalStoragePrefixDel(p)]
-          } else {
-            val = jo["app"][p]
+  setrunning=true
+  while (setque.length>0) {
+    const args= setque.shift()
+    k=args[0], v= args[1]
+    if (isStoragePrefix(k)) {
+      if (k=="_log") {
+        const setlog=async(v)=>{
+          const settime = getDateTime()
+          const setlogtype=async(v, sw)=>{
+            let r
+            if (sw) {
+              r = await storage_logsw.get(settime)
+            } else {
+              r = await storage_logwin.get(settime)
+            }
+            if (typeof(r)!=="undefined") await setlog(v)
+            if (sw) {
+              await storage_logsw.set(settime, v)
+              r = await storage_logsw.get(settime)
+            } else {
+              await storage_logwin.set(settime, v)
+              r = await storage_logwin.get(settime)
+            }
+            if (typeof(r)==="undefined" || (typeof(r)!=="undefined" && r!=v) ) {
+              await setlog(v)
+            } else {
+              return
+            }
           }
-          return val
-        } else {
-          return undefined
-        }
-      } else if (canbcc) {
-        const getref = Reflect.get(t, p, r)
-        if (typeof(getref)!=="undefined") {
-          return getref
-        } else {
-          return localStoragePromiseRes({ "type":"getreq", "args":{"p":p} })
-        }
-      } else {
-        return Reflect.get(t, p, r)
-      }
-    } catch(e) {
-      console.info("localStorageHandler.get error:" + e)
-      return Reflect.get(t, p, r)
-    }
-  },
-  set: (t, p, v, r)=>{
-    try {
-      if (iswin) {
-        //if (p!="_log") console.info("[info]set p:" + p + ", v:" + v)
-        let js = localStorage[localStorageKey]
-        let jo
-        if (js) {
-          jo = JSON.parse(js)
-        } else {
-          jo = {"app":{}}
-        }
-        if (isLocalStoragePrefix(p)) {
-          jo[getLocalStoragePrefixDel(p)] = v
-        } else {
-          jo["app"][p] = v
-        }
-        localStorageSetFix(jo)
-        js = JSON.stringify(jo)
-        localStorage[localStorageKey] = js
-        localStorageSetFuncs.forEach(f=>f(p, v))
-        if (isLocalStoragePrefix(p)) {
-          return true
-        } else {
-          return Reflect.set(t, p, v, r)
-        }
-      } else if (canbcc) {
-        Reflect.set(t, p, v, r)
-        return localStoragePromiseRes({ "type":"setreq", "args":{"p":p, "v":v} })
-      } else {
-        return Reflect.set(t, p, v, r)
-      }
-    } catch(e) {
-      console.info("localStorageHandler.set error:" + e)
-      return Reflect.set(t, p, v, r)
-    }
-  },
-  deleteProperty: (t, p)=>{
-    try {
-      if (iswin) {
-        let js = localStorage[localStorageKey]
-        if (js) {
-          let jo = JSON.parse(js)
-          if (isLocalStoragePrefix(p)) {
-            delete jo[getLocalStoragePrefixDel(p)]
+          if (typeof(v)==="string" && (v.substring(0,13)=="&ensp;<&ensp;" || v.substring(0,13)=="&ensp;>&ensp;")) {
+            const viewmode = await storage_info.get("viewmode")
+            if (viewmode=="sw") {
+              return await setlogtype(v, true)
+            } else {
+              return await setlogtype(v, false)
+            }
           } else {
-            delete jo["app"][p]
+            if (issw) {
+              return await setlogtype(v, true)
+            } else {
+              return await setlogtype(v, false)
+            }
           }
-          localStorageSetFix(jo)
-          js = JSON.stringify(jo)
-          localStorage[localStorageKey] = js
-          //return true
-        } else {
-          //return false
         }
-        return Reflect.deleteProperty(t, p)
-      } else if (canbcc) {
-        Reflect.deleteProperty(t, p)
-        return localStoragePromiseRes({ "type":"delreq", "args":{"p":p} })
+        await setlog(v)
       } else {
-        return Reflect.deleteProperty(t, p)
+        await storage_info.set(getStoragePrefixDel(k), v)
       }
-    } catch(e) {
-      console.info("localStorageHandler.delete error:" + e)
-      return Reflect.deleteProperty(t, p)
-    }
-  },
-}
-
-const storage = new Proxy(localStorageFunc, localStorageHandler)
-if (typeof(storage._app)==="undefined") storage._app={}
-
-const initstorage=()=>{
-  localStorage[localStorageKey]=JSON.stringify({})
-  storage._app={}
-}
-
-if (canbcc && issw) {
-  bcc.onmessageerror=(event)=>{
-    console.info(`sw.onmessageerror(event):${event.data}`)
-  }
-  bcc.onmessage=(event)=>{
-    //console.info(`sw.onmessage(event):${event.data}`)
-    //console.info(`sw.onmessage(event):type:${event.data.type}, v.app_win:${event.data.args.v.app_win}`)
-    switch (event.data.type) {
-      case "getres":
-        resbcc=event.data.value
-        break
-      case "setres":
-        resbcc=event.data.status
-        break
-      case "delres":
-        resbcc=event.data.status
-        break
-      default:
-        break
+    } else {
+      await storage_app.set(k, v)
     }
   }
+  await storage_info.set("localtime", getDateTime())
+  storageSetFuncs.forEach(f=>f(p, v))
+  setrunning=false
+  return true
+}
+storagedict.get=async(k)=>{
+  let v
+  if (isStoragePrefix(k)) {
+    if (k=="_log") {
+      if (iswin) {
+        v = await storage_logwin()
+      } else {
+        v = await storage_logsw()
+      }
+    } else {
+      v = await storage_info.get(getStoragePrefixDel(k))
+    }
+  } else {
+    v = await storage_app.get(k)
+  }
+  return v
+}
+storagedict.delete=async(k)=>{
+  let r
+  if (isStoragePrefix(k)) {
+    if (k=="_log") {
+      if (iswin) {
+        r = await storage_logwin.delete(k)
+      } else if (issw) {
+        r = await storage_logsw.delete(k)
+      } else {
+        r = await storage_info.delete(getStoragePrefixDel(k))
+      }
+    } else {
+      r = await storage_info.delete(getStoragePrefixDel(k))
+    }
+  } else {
+    r = await storage_app.delete(k)
+  }
+  return r
+}
+storagedict.clear=async()=>{
+  let r
+  r = await storage_logwin.clear()
+  r = await storage_logsw.clear()
+  r = await storage_info.clear()
+  r = await storage_app.clear()
+  return r
 }
 
-if (canbcc && iswin) {
-  bcc.onmessageerror=(event)=>{
-    console.info(`win.onmessageerror(event):${event.data}`)
+const storagefunc=async()=>{
+  const obj_app = await storage_app()
+  const obj_info = await storage_info()
+  const obj_logsw = await storage_logsw()
+  const obj_logwin = await storage_logwin()
+  const obj = {
+    "app":obj_app,
+    "info":obj_info,
+    "logsw":obj_logsw,
+    "logwin":obj_logwin,
   }
-  bcc.onmessage=(event)=>{
-    //console.info(`win.onmessage(event):${event.data.args}`)
-    //console.info(`win.onmessage(event):type:${event.data.type}, p:${event.data.args.p}`)
-    switch (event.data.type) {
-      case "log":
-        console.log(event.data.args)
-        break
-      case "getreq":
-        bcc.postMessage({ "type":"getres", "status":true, "value":storage[event.data.args.p] })
-        break
-      case "setreq":
-        storage[event.data.args.p] = event.data.args.v
-        bcc.postMessage({ "type":"setres", "status":true })
-        break
-      case "delreq":
-        delete storage[event.data.args.p]
-        bcc.postMessage({ "type":"delres", "status":true })
-        break
-      default:
-        break
-    }
-  }
+  return obj
+}
+const storage=Object.assign(storagefunc, storagedict)
+
+const initstorage=async()=>{
+  await storage.clear()
 }
 
 const p = "Console_js_"
@@ -281,34 +331,19 @@ const p = "Console_js_"
 const addconsole=()=>{
   let consoleLogBackup=console.log
   Object.defineProperty(console, "log", {
-    value: (...args)=>{
-      args.forEach(arg=>{
-        const log = getDateTime() + "|" + arg
-        if (iswin) {
-          consoleLogBackup(log)
-          const htmllog = `<div class="${p}line"><div class="${p}str">` + log + `</div></div>`
-          if (document.getElementById(`${p}viewerspan`)!==null) {
-            if ((document.getElementById(`${p}viewerspan`).childElementCount===0) && (typeof(storage._log)!=="undefined" && storage._log!="")) {
-              document.getElementById(`${p}viewerspan`).innerHTML = storage._log
-              if (typeof(storage._usestoragelog)==="undefined" || !storage._usestoragelog) storage._log = ""
-            }
-            document.getElementById(`${p}viewerspan`).innerHTML = document.getElementById(`${p}viewerspan`).innerHTML + htmllog
-            if (typeof(storage._usestoragelog)!=="undefined" && storage._usestoragelog) {
-              storage._log = (typeof(storage._log)==="undefined") ? htmllog : storage._log + htmllog
-            }
-          } else {
-            storage._log = (typeof(storage._log)==="undefined") ? htmllog : storage._log + htmllog
-          }
-        } else {
-          if (canbcc) bcc.postMessage({"type":"log", "args":arg})
-        }
-      })
+    value: async(...args)=>{
+      for (const arg of args) {
+        await storage.set("_log", arg)
+        consoleLogBackup(getDateTime() + "|" + arg)
+      }
+      if (isshow) view()
     },
   })
 }
 addconsole()
 
-const addcontents=()=>{
+const addcontents=async()=>{
+const _settings = await storage.get("_settings")
 document.body.insertAdjacentHTML("beforeend", String.raw`
 <style>
 
@@ -385,7 +420,7 @@ document.body.insertAdjacentHTML("beforeend", String.raw`
   color:#314de7
 }
 
-#${p}cmdslnow {
+#${p}cmdclnow {
   font-weight:900;
   color:#314de7
 }
@@ -459,34 +494,34 @@ document.body.insertAdjacentHTML("beforeend", String.raw`
 
 
 #${p}console.${p}hide.${p}right-bottom {
-  right:calc(30px - ${storage._settings.posx}px);
+  right:calc(30px - ${_settings.posx}px);
   left:inherit;
   top:inherit;
-  bottom:calc(30px - ${storage._settings.posy}px);
+  bottom:calc(30px - ${_settings.posy}px);
   transition:all 0.5s ease;
 }
 
 #${p}console.${p}hide.${p}right-bottom > #${p}viewer {
-  right:calc(60px - ${storage._settings.posx}px);
+  right:calc(60px - ${_settings.posx}px);
   left:inherit;
   top:inherit;
-  bottom:calc(60px - ${storage._settings.posy}px);
+  bottom:calc(60px - ${_settings.posy}px);
 }
 
 
 
 #${p}console.${p}hide.${p}right-top {
-  right:calc(30px - ${storage._settings.posx}px);
+  right:calc(30px - ${_settings.posx}px);
   left:inherit;
-  top:calc(30px + ${storage._settings.posy}px);
+  top:calc(30px + ${_settings.posy}px);
   bottom:inherit;
   transition:all 0.5s ease;
 }
 
 #${p}console.${p}hide.${p}right-top > #${p}viewer {
-  right:calc(60px - ${storage._settings.posx}px);
+  right:calc(60px - ${_settings.posx}px);
   left:inherit;
-  top:calc(60px + ${storage._settings.posy}px);
+  top:calc(60px + ${_settings.posy}px);
   bottom:inherit;
 }
 
@@ -494,33 +529,33 @@ document.body.insertAdjacentHTML("beforeend", String.raw`
 
 #${p}console.${p}hide.${p}left-bottom {
   right:inherit;
-  left:calc(30px + ${storage._settings.posx}px);
+  left:calc(30px + ${_settings.posx}px);
   top:inherit;
-  bottom:calc(30px - ${storage._settings.posy}px);
+  bottom:calc(30px - ${_settings.posy}px);
   transition:all 0.5s ease;
 }
 
 #${p}console.${p}hide.${p}left-bottom > #${p}viewer {
   right:inherit;
-  left:calc(60px + ${storage._settings.posx}px);
+  left:calc(60px + ${_settings.posx}px);
   top:inherit;
-  bottom:calc(60px - ${storage._settings.posy}px);
+  bottom:calc(60px - ${_settings.posy}px);
 }
 
 
 
 #${p}console.${p}hide.${p}left-top {
   right:inherit;
-  left:calc(30px + ${storage._settings.posx}px);
-  top:calc(30px + ${storage._settings.posy}px);
+  left:calc(30px + ${_settings.posx}px);
+  top:calc(30px + ${_settings.posy}px);
   bottom:inherit;
   transition:all 0.5s ease;
 }
 
 #${p}console.${p}hide.${p}left-top > #${p}viewer {
   right:inherit;
-  left:calc(60px + ${storage._settings.posx}px);
-  top:calc(60px + ${storage._settings.posy}px);
+  left:calc(60px + ${_settings.posx}px);
+  top:calc(60px + ${_settings.posy}px);
   bottom:inherit;
 }
 
@@ -531,7 +566,7 @@ document.body.insertAdjacentHTML("beforeend", String.raw`
 }
 
 </style>
-<div id="${p}console" class="${p}${storage._settings.pos} ${p}hide">
+<div id="${p}console" class="${p}${_settings.pos} ${p}hide">
   <div id="${p}viewer">
     <span id="${p}viewerspan"></span>
     <div class="${p}line">
@@ -545,7 +580,7 @@ document.body.insertAdjacentHTML("beforeend", String.raw`
       <div class="${p}str">&ensp;<span id="${p}cmddc" class="${p}cmd">@dc</span> delete cache</div>
       <div class="${p}str">&ensp;<span id="${p}cmdvs" class="${p}cmd">@vs</span> view storage</div>
       <div class="${p}str">&ensp;<span id="${p}cmdds" class="${p}cmd">@ds</span> delete storage</div>
-      <div class="${p}str">&ensp;<span id="${p}cmdsl" class="${p}cmd">@sl</span> storage log (currently <span id="${p}cmdslnow">${getUsestoragelogStr()}</span>)</div>
+      <div class="${p}str">&ensp;<span id="${p}cmdsl" class="${p}cmd">@cl</span> change log view mode (currently <span id="${p}cmdclnow">${await getViewMode()}</span>)</div>
       <div class="${p}str">&ensp;<span id="${p}cmddl" class="${p}cmd">@dl</span> delete log</div>
       <div class="${p}str">&ensp;<span id="${p}cmdcu" class="${p}cmd">@cu</span> change URL</div>
       <div class="${p}str">&ensp;<span id="${p}cmdse" class="${p}cmd">@se</span> send to URL</div>
@@ -562,7 +597,7 @@ document.body.insertAdjacentHTML("beforeend", String.raw`
 }
 
 const hideToggle=()=>{
-  console.log("hideToggle")
+  //console.log("hideToggle")
   const rapper = document.getElementById(`${p}console`);
   rapper.classList.toggle(`${p}hidetoggle`);
 }
@@ -627,7 +662,8 @@ const delCache=async()=>{
   actCache(msg, true)
 }
 
-const doPost = async(req, url=storage._posturl) => { //jsonオブジェクトを渡して、jsonオブジェクトで返る
+const doPost = async(req, url) => { //jsonオブジェクトを渡して、jsonオブジェクトで返る
+  if (typeof(url)==="undefined") url = await storage.get("_posturl")
   console.log( "&ensp;<&ensp;" + "doPost start" )
   try {
     if (!navigator.onLine) throw "offline now"
@@ -653,58 +689,50 @@ const doPost = async(req, url=storage._posturl) => { //jsonオブジェクトを
 
 
 
-const viewstorage=()=>{
+const viewstorage=async()=>{
   let disp="&ensp;<&ensp;" + "view storage...\n"
-  Object.keys(localStorage).forEach(key=>{
-    if (key==localStorageKey) {
-      let size = localStorage[key].length
-      let sizestr=""
-      if (size>1000000){
-        size = Math.ceil(size / 100000) / 10
-        sizestr = size + "MB"
-      } else if (size>1000){
-        size = Math.ceil(size / 100) / 10
-        sizestr = size + "KB"
-      } else {
-        sizestr = size + "byte"
-      }
-      disp = disp + `"` + key + `"(` + sizestr + `): `
-      let jo = JSON.parse(localStorage[key])
-      if (jo.log!=undefined) {
-        if (jo.log==="") {
-          jo.log = ""
-        } else {
-          jo.log = "..."
-        }
-      }
-      //disp = disp + JSON.stringify(jo, null, "&ensp;").split("\n").join("\n&ensp;")
-      disp = disp + JSON.stringify(jo, null, "&ensp;")
-      disp = disp + ",\n"
-    } else {
-      disp = disp + `"` + key + `",\n`
-    }
-  })
+  let jo = await storage()
+  const js=JSON.stringify(jo)
+  let size = js.length
+  let sizestr=""
+  if (size>1000000) {
+    size = Math.ceil(size / 100000) / 10
+    sizestr = size + "MB"
+  } else if (size>1000) {
+    size = Math.ceil(size / 100) / 10
+    sizestr = size + "KB"
+  } else {
+    sizestr = size + "byte"
+  }
+  disp = disp + `"` + storageName + `"(` + sizestr + `): `
+  delete jo.logsw
+  delete jo.logwin
+  disp = disp + JSON.stringify(jo, null, "&ensp;")
+  disp = disp + ",\n"
   disp = disp.split("\n").join("<br>")
   console.log(disp)
 }
 
-const changeurl=()=>{
+const changeurl=async()=>{
   console.log( "&ensp;<&ensp;" + "change URL..." )
-  const res = prompt("post name?", (storage._posturl==undefined)?"":storage._posturl)
-  if (res != null) storage._posturl=res
-  console.log( "&ensp;<&ensp;" + "URL: " + storage._posturl )
+  let posturl = await storage.get("_posturl")
+  const res = prompt("post name?", (posturl==undefined)?"":posturl)
+  if (res != null) await storage.set("_posturl", res)
+  posturl = await storage.get("_posturl")
+  console.log( "&ensp;<&ensp;" + "URL: " + posturl )
 }
 
 const send=async()=>{
   console.log( "&ensp;<&ensp;" + "send..." )
   try {
-    storage._sendtime = getDateTime()
+    let obj = await storage()
+    await storage.set("_sendtime", getDateTime())
     const jo = await doPost({
       "action":"set",
-      "data":JSON.parse(localStorage[localStorageKey]),
+      "data":obj,
     })
     console.log( "&ensp;<&ensp;" + "send success, postname:" + jo.postname )
-    storage._postname=(storage._postname)?storage._postname:jo.postname
+    if (jo.postname) await storage.set("_postname", jo.postname)
   } catch(e) {
     console.log( "&ensp;<&ensp;" + "send catch(e): " + e )
     alert(e)
@@ -714,15 +742,16 @@ const send=async()=>{
 const recv=async()=>{
   console.log( "&ensp;<&ensp;" + "receive..." )
   try {
+    const postname = await storage.get("_postname")
     const jo = await doPost({
       "action":"get",
       "data":{
-        "postname":storage._postname,
+        "postname":postname,
       },
     })
     console.log( "&ensp;<&ensp;" + "receive success, postname:" + jo.postname )
-    storage._recvtime = getDateTime()
-    storage._app=(jo.app)?jo.app:storage._app
+    await storage.set("_recvtime", getDateTime())
+    if (jo.app) await storage_app(jo.app)
   } catch(e) {
     console.log( "&ensp;<&ensp;" + "receive catch(e): " + e )
     alert(e)
@@ -732,27 +761,44 @@ const recv=async()=>{
 
 
 let isshow=false
-const view=()=>{
-storage._usestoragelog
-  //document.getElementById(`${p}viewerspan`).innerHTML = storage._log
+const view=async()=>{
+  let jo={}, el=""
+  const viewmode = await storage.get("_viewmode")
+  if (typeof(viewmode)==="undefined" || viewmode=="all") {
+    const jo_sw = await storage_logsw()
+    const jo_win = await storage_logwin()
+    jo = Object.assign(jo_sw, jo_win)
+  } else if (viewmode=="sw") {
+    jo = await storage_logsw()
+  } else if (viewmode=="win") {
+    jo = await storage_logwin()
+  }
+  Object.keys(jo).sort().forEach(key=>el = el + `<div class="${p}line"><div class="${p}str">${[key]}|${jo[key]}</div></div>`)
+  document.getElementById(`${p}viewerspan`).innerHTML = el
   const viewer = document.getElementById(`${p}viewer`)
   viewer.scrollTop = viewer.scrollHeight
 }
 
-const getUsestoragelogStr=()=>(typeof(storage._usestoragelog)!=="undefined" && storage._usestoragelog)?"in using":"not using"
+const getViewMode=async()=>{
+  const viewmode = await storage.get("_viewmode")
+  if (typeof(viewmode)==="undefined") {
+    return "all"
+  } else {
+    return viewmode
+  }
+}
 
-const addevents=()=>{
-
-  localStorageSetFuncs.push(()=>{if(isshow)view()})
-
-  document.getElementById(`${p}toggle`).addEventListener("click",()=>{
+const addevents=async()=>{
+  //storageSetFuncs.push(()=>{if(isshow)view()})
+  document.getElementById(`${p}toggle`).addEventListener("click",async()=>{
     console.log("toggle click")
     isshow=(isshow)?false:true
     if (isshow) view()
     const rapper = document.getElementById(`${p}console`)
     rapper.classList.toggle(`${p}hide`)
     //if (isshow) document.getElementById(`${p}cmd`).focus()
-    if (!storage._settings.show) hideToggle()
+    const _settings = await storage.get("_settings")
+    if (!_settings.show) hideToggle()
   })
 
 /*
@@ -767,7 +813,7 @@ const addevents=()=>{
 
   document.getElementById(`${p}cmd`).addEventListener("focus",(e)=>view())
 
-  document.getElementById(`${p}cmd`).addEventListener("keydown",(e)=>{
+  document.getElementById(`${p}cmd`).addEventListener("keydown",async(e)=>{
     //console.info(e)
     if (e.key=="Enter") {
       let input=document.getElementById(`${p}cmd`).value
@@ -795,18 +841,23 @@ const addevents=()=>{
               initstorage()
               console.log( "&ensp;<&ensp;" + "delete storage end" )
               break
-            case "@sl":
-              storage._usestoragelog=(typeof(storage._usestoragelog)==="undefined")?true:!storage._usestoragelog
-              let usestr = getUsestoragelogStr()
-              document.getElementById(`${p}cmdslnow`).innerHTML = usestr
-              const tmp_usestoragelog = storage._usestoragelog
-              storage._usestoragelog = true
-              console.log( "&ensp;<&ensp;" + `change the use of storage log: ${usestr}` )
-              storage._usestoragelog = tmp_usestoragelog
+            case "@cl":
+              let viewmode = await storage.get("_viewmode")
+              if (typeof(viewmode)==="undefined" || viewmode=="all") {
+                viewmode = "win"
+              } else if (viewmode=="win") {
+                viewmode = "sw"
+              } else if (viewmode=="sw") {
+                viewmode = "all"
+              }
+              await storage.set("_viewmode", viewmode)
+              document.getElementById(`${p}cmdclnow`).innerHTML = viewmode
+              console.log( "&ensp;<&ensp;" + `changed log view mode: ${viewmode}` )
               break
             case "@dl":
               console.log( "&ensp;<&ensp;" + "delete log start" )
-              storage._log = ""
+              await storage_logsw.clear()
+              await storage_logwin.clear()
               document.getElementById(`${p}viewerspan`).innerHTML = ""
               console.log( "&ensp;<&ensp;" + "delete log end" )
               break
@@ -842,7 +893,7 @@ const addevents=()=>{
 }
 
 //globalThis.Console=Object.assign((args={})=>{
-const settings=(args={})=>{
+const settings=async(args={})=>{
   if (iswin) {
 
     args.show=(typeof(args.show)!=="undefined")?args.show:true
@@ -851,23 +902,23 @@ const settings=(args={})=>{
     args.posy=(typeof(args.posy)!=="undefined")?args.posy:0
 
     if (document.getElementById(`${p}console`)!==null) document.getElementById(`${p}console`).remove()
-    storage._settings=args
+    await storage.set("_settings", args)
 
-    addcontents()
-    addevents()
-    if (!storage._settings.show) hideToggle()
+    await addcontents()
+    await addevents()
+    if (!args.show) hideToggle()
 
   }
   console.log(`Console.settings:${JSON.stringify(args)}, isWindow:${iswin}, isServiceWorker:${issw}, canBroadcastChannel:${canbcc}`)
 }
+await settings(args)
 
 
 
-globalThis.Console={
+Object.assign(globalThis.Console,{
   "settings":settings,
   "storage":storage,
-  "setfuncs":localStorageSetFuncs,
+  "setfuncs":storageSetFuncs,
+})
+return storage
 }
-
-})()
-Console.settings()

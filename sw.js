@@ -1,8 +1,8 @@
 "use strict";
 (async()=>{
 importScripts("./Console.js")
-let app = await Console.storage
-app.versw = "0.7.0"
+const app = await Console()
+app.versw = "0.8.0"
 console.info("[info]sw.js start")
 console.log("[sw]sw.js start")
 
@@ -18,7 +18,7 @@ const cacheItems = [
   "./",
 ]
 
-self.addEventListener("install", async(event)=>{
+self.addEventListener("install", (event)=>{
   console.log("[sw]install start")
   event.waitUntil((async()=>{
     self.skipWaiting()
@@ -29,7 +29,7 @@ self.addEventListener("install", async(event)=>{
   })())
 })
 
-self.addEventListener("activate", async(event)=>{
+self.addEventListener("activate", (event)=>{
   console.log("[sw]activate start")
   event.waitUntil((async()=>{
     const res = await self.clients.claim()
@@ -38,7 +38,7 @@ self.addEventListener("activate", async(event)=>{
   })())
 })
 
-self.addEventListener("fetch", async(event)=>{
+self.addEventListener("fetch", (event)=>{
   if (event.request.method == "POST") return
   event.respondWith((async()=>{
     const cacheres = await caches.match(event.request)
@@ -52,25 +52,21 @@ self.addEventListener("fetch", async(event)=>{
 const sample_app=async()=>{
   console.log("[sw]sample app start")
 
-  app.sw1 = 1
-  console.log(`[sw]app.sw1:${await app.sw1}`)
+  await app.set("sw1", 1)
+  console.log(`[sw]app.sw1:${await app.get("sw1")}`)
 
-  app.sw2 = 2
-  console.log(`[sw]app.sw2:${await app.sw2}`)
+  await app.set("sw2", 2)
+  console.log(`[sw]app.sw2:${await app.get("sw2")}`)
 
-  app.sw3 = 3
-  console.log(`[sw]app.sw3:${await app.sw3}`)
+  await app.set("sw3", 3)
+  console.log(`[sw]app.sw1:${await app.get("sw3")}`)
 
-  console.log(`[sw]app.x:${await app.x}`)
-  console.log(`[sw]app.count:${await app.count}`)
+  console.log(`[sw]app.x2:${await app.get("x2")}`)
 
-  delete app.sw2
-  console.log("[sw]delete app.sw2")
-  console.log(`[sw]app.sw2:${await app.sw2}`)
+  console.log(`[sw]app.count:${await app.get("count")}`)
 
-  let appobj={}
-  await Object.keys(app).forEach(async(k) => appobj[k] = await app[k])
-  console.log(`[sw]app:${JSON.stringify(appobj)}`)
+  let a = await app()
+  console.log(`[sw]app:${JSON.stringify(a.app)}`)
 
   console.log("[sw]sample app end")
 }

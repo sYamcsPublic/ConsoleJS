@@ -17,4 +17,26 @@
 <script defer src="./Console.js"></script>
 <script defer src="./win.js"></script>
 <script>navigator.serviceWorker.register("./sw.js")</script>
+
+<!--
+<script>window.addEventListener("DOMContentLoaded",()=>Console())</script>
+-->
+
+<!--
+<script>
+window.addEventListener("DOMContentLoaded",()=>{Console().then(app=>{
+  //any sync script
+})})
+</script>
+-->
+
+<!--
+<script>
+window.addEventListener("DOMContentLoaded",async()=>{
+  const app = await Console()
+  //any async script
+})
+</script>
+-->
+
 </html>
