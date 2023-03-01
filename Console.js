@@ -1,6 +1,6 @@
 "use strict";
 globalThis.Console=async(args={})=>{
-const VERSION = "0.6.0"
+const VERSION = "0.7.0"
 const iswin = (typeof(window)!=="undefined")
 const issw  = (typeof(ServiceWorkerGlobalScope)!=="undefined")
 const canbcc = (typeof(globalThis.BroadcastChannel)!=="undefined")
@@ -872,6 +872,7 @@ const addevents=async()=>{
               break
             case "@ra":
               console.log( "&ensp;<&ensp;" + "reload app..." )
+              await new Promise(resolve=>setTimeout(resolve, 500))
               location.reload(true)
               break
             default:

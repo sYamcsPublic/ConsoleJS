@@ -1,12 +1,5 @@
 "use strict";
-(async()=>{
-importScripts("./Console.js")
-const app = await Console()
-app.versw = "0.8.0"
-console.info("[info]sw.js start")
 console.log("[sw]sw.js start")
-
-
 
 const cacheName = registration.scope
 const cacheItems = [
@@ -46,6 +39,13 @@ self.addEventListener("fetch", (event)=>{
     return fetch(event.request)
   })())
 })
+
+
+
+;(async()=>{
+importScripts("./Console.js")
+const app = await Console()
+app.versw = "0.9.0"
 
 
 
