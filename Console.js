@@ -1,6 +1,6 @@
 "use strict";
 globalThis.Console=async(args={})=>{
-const VERSION = "0.10.0"
+const VERSION = "0.11.0"
 const iswin = (typeof(window)!=="undefined")
 const issw  = (typeof(ServiceWorkerGlobalScope)!=="undefined")
 const canbcc = (typeof(globalThis.BroadcastChannel)!=="undefined")
@@ -584,8 +584,8 @@ document.body.insertAdjacentHTML("beforeend", String.raw`
       <div class="${p}str">&ensp;<span id="${p}cmdsl" class="${p}cmd">@cl</span> change log view mode (currently <span id="${p}cmdclnow">${await getViewMode()}</span>)</div>
       <div class="${p}str">&ensp;<span id="${p}cmddl" class="${p}cmd">@dl</span> delete log</div>
       <div class="${p}str">&ensp;<span id="${p}cmdcu" class="${p}cmd">@cu</span> change URL</div>
-      <div class="${p}str">&ensp;<span id="${p}cmdse" class="${p}cmd">@se</span> send to URL</div>
-      <div class="${p}str">&ensp;<span id="${p}cmdre" class="${p}cmd">@re</span> receive from URL</div>
+      <div class="${p}str">&ensp;<span id="${p}cmdse" class="${p}cmd">@su</span> send to URL</div>
+      <div class="${p}str">&ensp;<span id="${p}cmdre" class="${p}cmd">@ru</span> receive from URL</div>
       <div class="${p}str">&ensp;<span id="${p}cmdra" class="${p}cmd">@ra</span> reload app</div>
       <div class="${p}str ${p}ver">${VERSION}&ensp;</div>
     </div>
@@ -868,10 +868,10 @@ const addevents=async()=>{
             case "@cu":
               changeurl()
               break
-            case "@se":
+            case "@su":
               send()
               break
-            case "@re":
+            case "@ru":
               recv()
               break
             case "@ra":
