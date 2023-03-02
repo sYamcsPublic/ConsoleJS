@@ -1,60 +1,52 @@
 "use strict";
 (async()=>{
-//const app = await Console({show:false, pos:"left-top", posx:-65, posy:-65})
-const app = await Console()
-await app.set("verwin", "0.4.0")
-console.info("[info]win.js start")
-console.log("win.js start")
+console.log("[win]win.js start")
+const app = await Console.promise
+await app.set("verwin", "0.5.0")
+//await Console.settings({show:false, pos:"left-top", posx:-65, posy:-65})
 
 
 
-console.log("---- type primitive")
+const inspection_func=async()=>{
+  console.log("[win]---- inspection func start")
 
-await app.set("x1", 1)
-let x1 = await Console.storage.get("x1")
-console.log("app.x1=1 -> x1:" + x1)
+  console.log("[win]---- type primitive")
+  await app.set("x1", 1)
+  let x1 = await Console.storage.get("x1")
+  console.log("[win]app.x1=1 -> x1:" + x1)
+  await app.set("x2", 2)
+  let x2 = await Console.storage.get("x2")
+  console.log("[win]app.x2=2 -> x2:" + x2)
 
-await app.set("x2", 2)
-let x2 = await Console.storage.get("x2")
-console.log("app.x2=2 -> x2:" + x2)
+  console.log("[win]---- type object")
+  await app.set("obj", {x:1})
+  let obj = await Console.storage.get("obj")
+  console.log("[win]app.obj={x:1} -> obj.x:" + obj.x)
 
+  console.log("[win]---- type array")
+  await app.set("arr", [1, 2])
+  let arr = await Console.storage.get("arr")
+  console.log("[win]app.arr=[1,2] -> arr[0]:" + arr[0])
 
+  console.log("[win]---- app watch")
+  let a = await app()
+  console.log(`[win]app:${JSON.stringify((await app()).app)}`)
 
-console.log("---- type object")
+  console.log("[win]---- delete app.x1")
+  await app.delete("x1")
+  console.log(`[win]app:${JSON.stringify((await app()).app)}`)
 
-await app.set("obj", {x:1})
-let obj = await Console.storage.get("obj")
-console.log("app.obj={x:1} -> obj.x:" + obj.x)
+  console.log("[win]---- watch app._localtime")
+  console.log(`[win]${await app.get("_localtime")}`)
 
-
-
-console.log("---- type array")
-
-await app.set("arr", [1, 2])
-let arr = await Console.storage.get("arr")
-console.log("app.arr=[1,2] -> arr[0]:" + arr[0])
-
-
-
-console.log("---- app watch")
-let a = await app()
-console.log(`app:${JSON.stringify((await app()).app)}`)
-
-
-
-console.log("---- delete app.x1")
-await app.delete("x1")
-console.log(`app:${JSON.stringify((await app()).app)}`)
-
-
-
-console.log("---- watch app._localtime")
-console.log(await app.get("_localtime"))
+  console.log("[win]---- inspection func end")
+}
+inspection_func()
 
 
 
 const sample_app=async()=>{
-  console.log("---- sample app start")
+  console.log("[win]---- sample app start")
 
   document.body.insertAdjacentHTML("beforeend", String.raw`
 <style>
@@ -96,7 +88,7 @@ const sample_app=async()=>{
   count = (typeof(count)==="undefined") ? 0 : count
   await app.set("count", count)
   document.getElementById("show").innerHTML = count
-  console.log("app.count:" + count)
+  console.log("[win]app.count:" + count)
 
   document.getElementById("show").addEventListener("click",async()=>{
     _recvtime = await app.get("_recvtime")
@@ -105,7 +97,7 @@ const sample_app=async()=>{
     count = count + 1
     await app.set("count", count)
     document.getElementById("show").innerHTML = count
-    console.log("app.count:" + count)
+    console.log("[win]app.count:" + count)
   })
 
   Console.setfuncs.push(async()=>{
@@ -119,11 +111,11 @@ const sample_app=async()=>{
     }
   })
 
-  console.log("---- sample app end")
+  console.log("[win]---- sample app end")
 }
 sample_app()
 
 
 
-console.log("win.js end")
+console.log("[win]win.js end")
 })()

@@ -1,5 +1,35 @@
 "use strict";
+(async()=>{
 console.log("[sw]sw.js start")
+importScripts("./Console.js")
+let app;Console.promise.then(async(value)=>{app=value
+  await app.set("versw", "0.11.0")
+
+  const inspection_func=async()=>{
+    console.log("[sw]---- inspection func start")
+
+    console.log("[sw]---- set&get")
+    await app.set("sw1", 1)
+    console.log(`[sw]app.sw1:${await app.get("sw1")}`)
+    await app.set("sw2", 2)
+    console.log(`[sw]app.sw2:${await app.get("sw2")}`)
+    await app.set("sw3", 3)
+    console.log(`[sw]app.sw1:${await app.get("sw3")}`)
+
+    console.log("[sw]---- win.js value get")
+    console.log(`[sw]app.x2:${await app.get("x2")}`)
+    console.log(`[sw]app.count:${await app.get("count")}`)
+
+    console.log("[sw]---- app watch")
+    console.log(`[sw]app:${JSON.stringify((await app()).app)}`)
+
+    console.log("[sw]---- inspection func end")
+  }
+  inspection_func()
+
+})
+
+
 
 const cacheName = registration.scope
 const cacheItems = [
@@ -39,39 +69,6 @@ self.addEventListener("fetch", (event)=>{
     return fetch(event.request)
   })())
 })
-
-
-
-;(async()=>{
-importScripts("./Console.js")
-const app = await Console()
-await app.set("versw", "0.10.0")
-
-
-
-const sample_app=async()=>{
-  console.log("[sw]sample app start")
-
-  await app.set("sw1", 1)
-  console.log(`[sw]app.sw1:${await app.get("sw1")}`)
-
-  await app.set("sw2", 2)
-  console.log(`[sw]app.sw2:${await app.get("sw2")}`)
-
-  await app.set("sw3", 3)
-  console.log(`[sw]app.sw1:${await app.get("sw3")}`)
-
-  console.log(`[sw]app.x2:${await app.get("x2")}`)
-
-  console.log(`[sw]app.count:${await app.get("count")}`)
-
-  console.log(`[sw]app:${JSON.stringify((await app()).app)}`)
-
-  console.log("[sw]sample app end")
-}
-sample_app()
-
-
 
 console.log("[sw]sw.js end")
 })()

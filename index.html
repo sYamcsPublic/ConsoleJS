@@ -15,26 +15,29 @@
 </head>
 <body width="0px" height="0px" style="margin:0"></body>
 <script defer src="./Console.js"></script>
+
+
+
 <script defer src="./win.js"></script>
 <script>navigator.serviceWorker.register("./sw.js")</script>
-
-<!--
-<script>window.addEventListener("DOMContentLoaded",()=>Console())</script>
--->
-
-<!--
 <script>
-window.addEventListener("DOMContentLoaded",()=>{Console().then(app=>{
-  //any sync script
-})})
+window.addEventListener("DOMContentLoaded",async()=>{
+  console.log("[idx]index.html start")
+  const app = await Console.promise
+  await app.set("veridx", "0.2.0")
+  console.log("[idx]index.html end")
+})
 </script>
--->
 
 <!--
 <script>
 window.addEventListener("DOMContentLoaded",async()=>{
-  const app = await Console()
-  //any async script
+  let app;Console.promise.then(async(value)=>{app=value
+    //any script synced with Console
+    console.log("[idx]2")
+  })
+  //any script asynced with Console
+  console.log("[idx]1")
 })
 </script>
 -->

@@ -1,6 +1,6 @@
 "use strict";
 globalThis.Console=async(args={})=>{
-const VERSION = "0.9.0"
+const VERSION = "0.10.0"
 const iswin = (typeof(window)!=="undefined")
 const issw  = (typeof(ServiceWorkerGlobalScope)!=="undefined")
 const canbcc = (typeof(globalThis.BroadcastChannel)!=="undefined")
@@ -333,8 +333,8 @@ const addconsole=()=>{
   Object.defineProperty(console, "log", {
     value: async(...args)=>{
       for (const arg of args) {
-        await storage.set("_log", arg)
         consoleLogBackup(getDateTime() + "|" + arg)
+        await storage.set("_log", arg)
       }
       if (isshow) view()
     },
@@ -771,7 +771,7 @@ const view=async()=>{
     jo = Object.assign(jo_sw, jo_win)
   } else if (viewmode=="sw") {
     jo = await storage_logsw()
-  } else if (viewmode=="win") {
+  } else if (viewmode=="other than sw") {
     jo = await storage_logwin()
   }
   Object.keys(jo).sort().forEach(key=>el = el + `<div class="${p}line"><div class="${p}str">${[key]}|${jo[key]}</div></div>`)
@@ -848,8 +848,8 @@ const addevents=async()=>{
             case "@cl":
               let viewmode = await storage.get("_viewmode")
               if (typeof(viewmode)==="undefined" || viewmode=="all") {
-                viewmode = "win"
-              } else if (viewmode=="win") {
+                viewmode = "other than sw"
+              } else if (viewmode=="other than sw") {
                 viewmode = "sw"
               } else if (viewmode=="sw") {
                 viewmode = "all"
@@ -932,3 +932,4 @@ Object.assign(globalThis.Console,{
 })
 return storage
 }
+globalThis.Console.promise=Console()
