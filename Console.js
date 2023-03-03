@@ -1,6 +1,6 @@
 "use strict";
 globalThis.Console=async(args={})=>{
-const VERSION = "0.11.0"
+const VERSION = "0.12.0"
 const iswin = (typeof(window)!=="undefined")
 const issw  = (typeof(ServiceWorkerGlobalScope)!=="undefined")
 const canbcc = (typeof(globalThis.BroadcastChannel)!=="undefined")
@@ -200,8 +200,11 @@ storagedict.set=async(k, v)=>{
   setque.push([k, v])
   await(()=>{
     return new Promise(resolve=>{
-      setInterval(()=>{
-        if (!setrunning) resolve()
+      let id=setInterval(()=>{
+        if (!setrunning) {
+          clearInterval(id)
+          resolve()
+        }
       }, 1)
     })
   })()
