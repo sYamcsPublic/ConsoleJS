@@ -1,9 +1,10 @@
 "use strict";
 (async()=>{
 console.log("[win]win.js start")
-const app = await Console.promise
+await Console.promise
 //await Console.settings({storage:true, show:false, pos:"left-top", posx:-65, posy:-65})
 await Console.settings({storage:true})
+const app = Console.storage
 await app.set("verwin", "0.6.0")
 
 

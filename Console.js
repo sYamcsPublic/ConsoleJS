@@ -1,6 +1,6 @@
 "use strict";
 globalThis.Console=async(args={})=>{
-const VERSION = "0.14.0"
+const VERSION = "0.15.0"
 const iswin = (typeof(window)!=="undefined")
 const issw  = (typeof(ServiceWorkerGlobalScope)!=="undefined")
 const canbcc = (typeof(globalThis.BroadcastChannel)!=="undefined")
@@ -269,6 +269,25 @@ storagedict.set=async(k, v)=>{
     k=args[0], v=args[1]
     if (isStoragePrefix(k)) {
       if (k=="_log") {
+        await new Promise(resolve=>setTimeout(resolve,1))
+        const settime = getDateTime()
+        if (typeof(v)==="string" && (v.substring(0,13)=="&ensp;<&ensp;" || v.substring(0,13)=="&ensp;>&ensp;")) {
+          const viewmode = await storage_info.get("viewmode")
+          if (viewmode=="sw") {
+            await storage_logsw.set(settime, v)
+          } else {
+            await storage_logwin.set(settime, v)
+          }
+        } else {
+          if (issw) {
+            await storage_logsw.set(settime, v)
+          } else {
+            await storage_logwin.set(settime, v)
+          }
+        }
+
+
+/*
         const setlog=async(v)=>{
           await new Promise(resolve=>setTimeout(resolve,1))
           const settime = getDateTime()
@@ -280,6 +299,7 @@ storagedict.set=async(k, v)=>{
               r = await storage_logwin.get(settime)
             }
             if (typeof(r)!=="undefined") await setlog(v)
+
             if (sw) {
               await storage_logsw.set(settime, v)
               r = await storage_logsw.get(settime)
@@ -309,6 +329,9 @@ storagedict.set=async(k, v)=>{
           }
         }
         await setlog(v)
+*/
+
+
       } else {
         await storage_info.set(getStoragePrefixDel(k), v)
       }

@@ -21,9 +21,10 @@
 <script>
 window.addEventListener("DOMContentLoaded",async()=>{
   console.log("[idx]index.html start")
-  const app = await Console.promise
+  await Console.promise
   //await Console.settings({storage:true}) //Comment because it is implemented in win.js
-  await app.set("veridx", "0.3.0")
+  const app = Console.storage
+  await app.set("veridx", "0.4.0")
 
   //any script synced with Console
 
@@ -34,7 +35,8 @@ window.addEventListener("DOMContentLoaded",async()=>{
 <!--
 <script>
 window.addEventListener("DOMContentLoaded",async()=>{
-  let app;Console.promise.then(async(value)=>{app=value
+  let app;Console.promise.then(async()=>{
+    app = Console.storage
     //any script synced with Console
     console.log("[idx]2")
   })
