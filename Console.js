@@ -1,6 +1,6 @@
 "use strict";
 globalThis.Console=async(args={})=>{
-const VERSION = "0.12.0"
+const VERSION = "0.13.0"
 const iswin = (typeof(window)!=="undefined")
 const issw  = (typeof(ServiceWorkerGlobalScope)!=="undefined")
 const canbcc = (typeof(globalThis.BroadcastChannel)!=="undefined")
@@ -67,8 +67,20 @@ const getPrefix=()=>{
 const idbdict={}
 const idbfunc=(args={})=>{
 
+  const fake=(typeof(args.fake)!=="undefined")?args.fake:false
   const version=(typeof(args.version)!=="undefined")?args.version:1
-  const dbname=(typeof(args.dbname)!=="undefined")?getPrefix()+args.dbname:getPrefix()
+  //const dbname=(typeof(args.dbname)!=="undefined")?getPrefix()+args.dbname:getPrefix()
+  let dbname=""
+  if (fake) {
+    if (typeof(args.dbname)!=="undefined") {
+      dbname=args.dbname
+    } else {
+      console.log("idb error: dbname not found")
+      return
+    }
+  } else {
+    dbname=(typeof(args.dbname)!=="undefined")?getPrefix()+args.dbname:getPrefix()
+  }
   let objnames=[]
   if (typeof(args.objnames)!=="undefined") {
     objnames = [...args.objnames]
@@ -79,9 +91,14 @@ const idbfunc=(args={})=>{
 
   idbdict.clear=()=>{
     return new Promise((resolve, reject)=>{
-      const req = indexedDB.deleteDatabase(dbname)
-      req.onerror=()=>reject()
-      req.onsuccess=()=>resolve()
+      if (fake) {
+        delete globalThis[dbname]
+        resolve()
+      } else {
+        const req = indexedDB.deleteDatabase(dbname)
+        req.onerror=()=>reject()
+        req.onsuccess=()=>resolve()
+      }
     })
   }
 
@@ -91,34 +108,59 @@ const idbfunc=(args={})=>{
 
     const commonfunc=(f, k="", v="")=>{
       return new Promise((resolve, reject)=>{
-        const req = indexedDB.open(dbname, version)
-        req.onerror=()=>reject()
-        req.onsuccess=(ev)=>{
-          let req
+        if (fake) {
+          let result
           switch(f){
             case "set":
-              req = ev.target.result.transaction(storename, "readwrite").objectStore(storename).put(v, k)
-              //console.info(`[set]k:${k},v:${v}`)
+              globalThis[dbname][storename][k]=v
+              result=true
               break
             case "get":
-              req = ev.target.result.transaction(storename, "readonly").objectStore(storename).get(k)
+              result=globalThis[dbname][storename][k]
               break
             case "getAllKeys":
-              req = ev.target.result.transaction(storename, "readonly").objectStore(storename).getAllKeys()
+              result=Object.keys(globalThis[dbname][storename])
               break
             case "delete":
-              req = ev.target.result.transaction(storename, "readwrite").objectStore(storename).delete(k)
+              delete globalThis[dbname][storename][k]
               break
             case "clear":
-              req = ev.target.result.transaction(storename, "readwrite").objectStore(storename).clear()
+              globalThis[dbname][storename]={}
               break
             default:
               break
           }
+          resolve(result)
+        } else {
+          const req = indexedDB.open(dbname, version)
           req.onerror=()=>reject()
-          req.onsuccess=()=>{
-            ev.target.result.close()
-            resolve(req.result)
+          req.onsuccess=(ev)=>{
+            let req
+            switch(f){
+              case "set":
+                req = ev.target.result.transaction(storename, "readwrite").objectStore(storename).put(v, k)
+                //console.info(`[set]k:${k},v:${v}`)
+                break
+              case "get":
+                req = ev.target.result.transaction(storename, "readonly").objectStore(storename).get(k)
+                break
+              case "getAllKeys":
+                req = ev.target.result.transaction(storename, "readonly").objectStore(storename).getAllKeys()
+                break
+              case "delete":
+                req = ev.target.result.transaction(storename, "readwrite").objectStore(storename).delete(k)
+                break
+              case "clear":
+                req = ev.target.result.transaction(storename, "readwrite").objectStore(storename).clear()
+                break
+              default:
+                break
+            }
+            req.onerror=()=>reject()
+            req.onsuccess=()=>{
+              ev.target.result.close()
+              resolve(req.result)
+            }
           }
         }
       })
@@ -150,14 +192,20 @@ const idbfunc=(args={})=>{
   }
 
   return new Promise((resolve, reject)=>{
-    const req = indexedDB.open(dbname, version)
-    req.onupgradeneeded=(ev)=>{
-      for(let objname of objnames) ev.target.result.createObjectStore(objname, {autoIncrement:false})
-    }
-    req.onerror=()=>reject()
-    req.onsuccess=(ev)=>{
-      ev.target.result.close()
+    if (fake) {
+      globalThis[dbname]={}
+      for(let objname of objnames) globalThis[dbname][objname]={}
       resolve({...idbdict})
+    } else {
+      const req = indexedDB.open(dbname, version)
+      req.onupgradeneeded=(ev)=>{
+        for(let objname of objnames) ev.target.result.createObjectStore(objname, {autoIncrement:false})
+      }
+      req.onerror=()=>reject()
+      req.onsuccess=(ev)=>{
+        ev.target.result.close()
+        resolve({...idbdict})
+      }
     }
   })
 }
@@ -166,22 +214,29 @@ const idb=Object.assign(idbfunc, {...idbdict})
 
 
 
-const storageName = "Console.js"
-const storages = await idb({
-  "version": 1,
-  "dbname": storageName,
-  "objnames": [
-    "app",
-    "info",
-    "logsw",
-    "logwin",
-  ],
-})
+const storageName = "ConsoleJS"
+let storages, storage_app, storage_info, storage_logsw, storage_logwin
 
-const storage_app = storages.obj("app")
-const storage_info = storages.obj("info")
-const storage_logsw = storages.obj("logsw")
-const storage_logwin = storages.obj("logwin")
+const storagesinit=async(fake=true)=>{
+  storages = await idb({
+    "fake": fake,
+    "version": 1,
+    "dbname": storageName,
+    "objnames": [
+      "app",
+      "info",
+      "logsw",
+      "logwin",
+    ],
+  })
+  storage_app = storages.obj("app")
+  storage_info = storages.obj("info")
+  storage_logsw = storages.obj("logsw")
+  storage_logwin = storages.obj("logwin")
+}
+await storagesinit()
+
+
 
 let storageSetFuncs=[]
 /*
@@ -211,10 +266,11 @@ storagedict.set=async(k, v)=>{
   setrunning=true
   while (setque.length>0) {
     const args= setque.shift()
-    k=args[0], v= args[1]
+    k=args[0], v=args[1]
     if (isStoragePrefix(k)) {
       if (k=="_log") {
         const setlog=async(v)=>{
+          await new Promise(resolve=>setTimeout(resolve,1))
           const settime = getDateTime()
           const setlogtype=async(v, sw)=>{
             let r
@@ -234,7 +290,7 @@ storagedict.set=async(k, v)=>{
             if (typeof(r)==="undefined" || (typeof(r)!=="undefined" && r!=v) ) {
               await setlog(v)
             } else {
-              return
+              return true
             }
           }
           if (typeof(v)==="string" && (v.substring(0,13)=="&ensp;<&ensp;" || v.substring(0,13)=="&ensp;>&ensp;")) {
@@ -909,6 +965,7 @@ const addevents=async()=>{
 const settings=async(args={})=>{
   if (iswin) {
 
+    args.storage=(typeof(args.storage)!=="undefined")?args.storage:false
     args.show=(typeof(args.show)!=="undefined")?args.show:true
     args.pos=(typeof(args.pos)!=="undefined")?args.pos:"right-bottom" //"right-bottom"(default), "right-top", "left-bottom", "left-top"
     args.posx=(typeof(args.posx)!=="undefined")?args.posx:0
@@ -922,7 +979,16 @@ const settings=async(args={})=>{
     if (!args.show) hideToggle()
 
   }
+  if (args.storage) {
+    await storagesinit(false)
+    await storage_app(globalThis[storageName]["app"])
+    await storage_info(globalThis[storageName]["info"])
+    if (issw) await storage_logsw(globalThis[storageName]["logsw"])
+    if (iswin) await storage_logwin(globalThis[storageName]["logwin"])
+    await delete globalThis[storageName]
+  }
   console.log(`Console.settings:${JSON.stringify(args)}, isWindow:${iswin}, isServiceWorker:${issw}, canBroadcastChannel:${canbcc}`)
+
 }
 await settings(args)
 

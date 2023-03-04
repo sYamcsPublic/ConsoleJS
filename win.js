@@ -2,8 +2,9 @@
 (async()=>{
 console.log("[win]win.js start")
 const app = await Console.promise
-await app.set("verwin", "0.5.0")
-//await Console.settings({show:false, pos:"left-top", posx:-65, posy:-65})
+//await Console.settings({storage:true, show:false, pos:"left-top", posx:-65, posy:-65})
+await Console.settings({storage:true})
+await app.set("verwin", "0.6.0")
 
 
 

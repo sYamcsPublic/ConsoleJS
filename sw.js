@@ -3,7 +3,8 @@
 console.log("[sw]sw.js start")
 importScripts("./Console.js")
 let app;Console.promise.then(async(value)=>{app=value
-  await app.set("versw", "0.11.0")
+  await Console.settings({storage:true})
+  await app.set("versw", "0.12.0")
 
   const inspection_func=async()=>{
     console.log("[sw]---- inspection func start")
