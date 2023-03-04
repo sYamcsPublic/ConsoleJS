@@ -1,6 +1,6 @@
 "use strict";
 globalThis.Console=async(args={})=>{
-const VERSION = "0.15.0"
+const VERSION = "0.16.0"
 const iswin = (typeof(window)!=="undefined")
 const issw  = (typeof(ServiceWorkerGlobalScope)!=="undefined")
 const canbcc = (typeof(globalThis.BroadcastChannel)!=="undefined")
@@ -285,53 +285,6 @@ storagedict.set=async(k, v)=>{
             await storage_logwin.set(settime, v)
           }
         }
-
-
-/*
-        const setlog=async(v)=>{
-          await new Promise(resolve=>setTimeout(resolve,1))
-          const settime = getDateTime()
-          const setlogtype=async(v, sw)=>{
-            let r
-            if (sw) {
-              r = await storage_logsw.get(settime)
-            } else {
-              r = await storage_logwin.get(settime)
-            }
-            if (typeof(r)!=="undefined") await setlog(v)
-
-            if (sw) {
-              await storage_logsw.set(settime, v)
-              r = await storage_logsw.get(settime)
-            } else {
-              await storage_logwin.set(settime, v)
-              r = await storage_logwin.get(settime)
-            }
-            if (typeof(r)==="undefined" || (typeof(r)!=="undefined" && r!=v) ) {
-              await setlog(v)
-            } else {
-              return true
-            }
-          }
-          if (typeof(v)==="string" && (v.substring(0,13)=="&ensp;<&ensp;" || v.substring(0,13)=="&ensp;>&ensp;")) {
-            const viewmode = await storage_info.get("viewmode")
-            if (viewmode=="sw") {
-              return await setlogtype(v, true)
-            } else {
-              return await setlogtype(v, false)
-            }
-          } else {
-            if (issw) {
-              return await setlogtype(v, true)
-            } else {
-              return await setlogtype(v, false)
-            }
-          }
-        }
-        await setlog(v)
-*/
-
-
       } else {
         await storage_info.set(getStoragePrefixDel(k), v)
       }
