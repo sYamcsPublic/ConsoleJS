@@ -1,6 +1,6 @@
 "use strict";
 globalThis.Console=async(args={})=>{
-const VERSION = "0.13.0"
+const VERSION = "0.14.0"
 const iswin = (typeof(window)!=="undefined")
 const issw  = (typeof(ServiceWorkerGlobalScope)!=="undefined")
 const canbcc = (typeof(globalThis.BroadcastChannel)!=="undefined")
@@ -981,10 +981,10 @@ const settings=async(args={})=>{
   }
   if (args.storage) {
     await storagesinit(false)
-    await storage_app(globalThis[storageName]["app"])
-    await storage_info(globalThis[storageName]["info"])
-    if (issw) await storage_logsw(globalThis[storageName]["logsw"])
-    if (iswin) await storage_logwin(globalThis[storageName]["logwin"])
+    for (let k in globalThis[storageName]["app"]) storage_app.set(k, globalThis[storageName]["app"][k])
+    for (let k in globalThis[storageName]["info"]) storage_info.set(k, globalThis[storageName]["info"][k])
+    for (let k in globalThis[storageName]["logsw"]) storage_logsw.set(k, globalThis[storageName]["logsw"][k])
+    for (let k in globalThis[storageName]["logwin"]) storage_logwin.set(k, globalThis[storageName]["logwin"][k])
     await delete globalThis[storageName]
   }
   console.log(`Console.settings:${JSON.stringify(args)}, isWindow:${iswin}, isServiceWorker:${issw}, canBroadcastChannel:${canbcc}`)
