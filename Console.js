@@ -1,6 +1,6 @@
 "use strict";
 globalThis.Console=async(args={})=>{
-const VERSION = "0.16.0"
+const VERSION = "0.17.0"
 const iswin = (typeof(window)!=="undefined")
 const issw  = (typeof(ServiceWorkerGlobalScope)!=="undefined")
 const canbcc = (typeof(globalThis.BroadcastChannel)!=="undefined")
@@ -214,7 +214,7 @@ const idb=Object.assign(idbfunc, {...idbdict})
 
 
 
-const storageName = "ConsoleJS"
+const storageName = "ConsoleIDB"
 let storages, storage_app, storage_info, storage_logsw, storage_logwin
 
 const storagesinit=async(fake=true)=>{
