@@ -23,14 +23,15 @@ const getContents=(args)=>{
   let isExist=false, folder, file, data=""
   try {
     if (!args.hasOwnProperty("data")) throw "data undefined"
-    if (!args.data.hasOwnProperty("postname")) throw "postname undefined"
-    if (args.data.postname=="") throw "postname empty"
+    if (!args.data.hasOwnProperty("info")) throw "info undefined"
+    if (!args.data.info.hasOwnProperty("postname")) throw "postname undefined"
+    if (args.data.info.postname=="") throw "postname empty"
     //const folderid = args.folder.substr(args.folder.lastIndexOf('/')+1)
     folder = DriveApp.getFolderById(folderid);
     const files = folder.getFiles()
     while (files.hasNext()) {
       file = files.next()
-      if (file.getName() === args.data.postname) { //postnameをファイル名として存在チェック
+      if (file.getName() === args.data.info.postname) { //postnameをファイル名として存在チェック
         isExist = true
         data = file.getBlob().getDataAsString("utf-8"); //ファイルをutf-8で読み込み
         break
@@ -67,12 +68,12 @@ const set=(args)=>{
     if (contents.status=="OK") {
       if (contents.exist) {
         contents.file.setTrashed(true);
-        console.log(`set: ${args.data.postname} deleted`)
+        console.log(`set: ${args.data.info.postname} deleted`)
       }
     } else if (contents.data=="postname undefined" || contents.data=="postname empty") {
       let f=true
       do {
-        args.data.postname = Math.random().toString(36).substring(2)
+        args.data.info.postname = Math.random().toString(36).substring(2)
         contents = getContents(args)
         if (contents.status=="OK" && !contents.exist) f=false
       } while(f)
@@ -80,9 +81,9 @@ const set=(args)=>{
       throw contents.data
     }
     const data = JSON.stringify(args.data); //受信したdataを文字列変換
-    const file = DriveApp.createFile(args.data.postname, data, MimeType.PLAIN_TEXT); //IDをファイル名にしてプレーンテキストでファイル作成
+    const file = DriveApp.createFile(args.data.info.postname, data, MimeType.PLAIN_TEXT); //IDをファイル名にしてプレーンテキストでファイル作成
     file.moveTo(contents.folder)
-    return {"status": "OK", "data": {"postname": args.data.postname}};
+    return {"status": "OK", "data": {"info": {"postname": args.data.info.postname}}};
   } catch(e) {
     return {"status": "NG", "data": e};
   }
@@ -109,7 +110,9 @@ const main=(args)=>{
 const reqJson = {
   action: "get",
   data: {
-    postname: "6cvgl7tzxye",
+    info: {
+      postname: "6hjnmt438g",
+    },
   },
 }
 */
@@ -118,18 +121,9 @@ const reqJson = {
 const reqJson = {
   action: "set",
   data: {
-    "postname": "test3.txt",
-    "key1": "xxxx",
-    "log": "3023-02-03.20:15:10.010|start\\n3023-02-03.20:20:10.010|end\\n",
-  }
-}
-*/
-
-/*
-const reqJson = {
-  action: "set",
-  data: {
-    "postname": "",
+    info: {
+      //"postname": "",
+    },
     "key1": "xxxx",
     "log": "bbbb\\ncccc\\n",
   }
@@ -150,7 +144,7 @@ const reqJson = {
 function doPostTest(){
   console.log("doPostTest: start")
   let resJson = main(reqJson)
-  console.log(resJson)
+  console.log(JSON.stringify(resJson))
 }
 */
 

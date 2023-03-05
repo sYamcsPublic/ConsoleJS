@@ -1,6 +1,6 @@
 "use strict";
 globalThis.Console=async(args={})=>{
-const VERSION = "0.18.0"
+const VERSION = "0.19.0"
 const iswin = (typeof(window)!=="undefined")
 const issw  = (typeof(ServiceWorkerGlobalScope)!=="undefined")
 const canbcc = (typeof(globalThis.BroadcastChannel)!=="undefined")
@@ -618,9 +618,10 @@ document.body.insertAdjacentHTML("beforeend", String.raw`
       <div class="${p}str">&ensp;<span id="${p}cmdds" class="${p}cmd">@ds</span> delete storage</div>
       <div class="${p}str">&ensp;<span id="${p}cmdsl" class="${p}cmd">@cl</span> change log view mode (currently <span id="${p}cmdclnow">${await getViewMode()}</span>)</div>
       <div class="${p}str">&ensp;<span id="${p}cmddl" class="${p}cmd">@dl</span> delete log</div>
-      <div class="${p}str">&ensp;<span id="${p}cmdcu" class="${p}cmd">@cu</span> change URL</div>
-      <div class="${p}str">&ensp;<span id="${p}cmdse" class="${p}cmd">@su</span> send to URL</div>
-      <div class="${p}str">&ensp;<span id="${p}cmdre" class="${p}cmd">@ru</span> receive from URL</div>
+      <div class="${p}str">&ensp;<span id="${p}cmdcu" class="${p}cmd">@cn</span> change name</div>
+      <div class="${p}str">&ensp;<span id="${p}cmdcu" class="${p}cmd">@cu</span> change url</div>
+      <div class="${p}str">&ensp;<span id="${p}cmdse" class="${p}cmd">@su</span> send to url</div>
+      <div class="${p}str">&ensp;<span id="${p}cmdre" class="${p}cmd">@ru</span> receive from url</div>
       <div class="${p}str">&ensp;<span id="${p}cmdra" class="${p}cmd">@ra</span> reload app</div>
       <div class="${p}str ${p}ver">${VERSION}&ensp;</div>
     </div>
@@ -631,6 +632,8 @@ document.body.insertAdjacentHTML("beforeend", String.raw`
 </div>
 `)
 }
+
+
 
 const hideToggle=()=>{
   //console.log("hideToggle")
@@ -646,7 +649,7 @@ const viewsw=()=>{
     let state = "undefined"
     if (typeof(navigator.serviceWorker)!=="undefined") {
       if (typeof(navigator.serviceWorker.controller)!=="undefined" && navigator.serviceWorker.controller !== null) {
-        script = navigator.serviceWorker.controller.scriptURL
+        script = navigator.serviceWorker.controller.scripturl
         state = navigator.serviceWorker.controller.state
       }
     }
@@ -698,6 +701,39 @@ const delCache=async()=>{
   actCache(msg, true)
 }
 
+const viewstorage=async()=>{
+  let disp="&ensp;<&ensp;" + "view storage...\n"
+  let jo = await storage()
+  const js=JSON.stringify(jo)
+  let size = js.length
+  let sizestr=""
+  if (size>1000000) {
+    size = Math.ceil(size / 100000) / 10
+    sizestr = size + "MB"
+  } else if (size>1000) {
+    size = Math.ceil(size / 100) / 10
+    sizestr = size + "KB"
+  } else {
+    sizestr = size + "byte"
+  }
+  disp = disp + `"` + storageName + `"(` + sizestr + `): `
+  delete jo.logsw
+  delete jo.logwin
+  disp = disp + JSON.stringify(jo, null, "&ensp;")
+  disp = disp + ",\n"
+  disp = disp.split("\n").join("<br>")
+  console.log(disp)
+}
+
+const deletelog=async()=>{
+  console.log( "&ensp;<&ensp;" + "delete log start" )
+  await storage_logsw.clear()
+  await storage_logwin.clear()
+  document.getElementById(`${p}viewerspan`).innerHTML = ""
+  console.log( "&ensp;<&ensp;" + "delete log end" )
+  return true
+}
+
 const doPost = async(req, url) => { //jsonオブジェクトを渡して、jsonオブジェクトで返る
   if (typeof(url)==="undefined") url = await storage.get("_posturl")
   console.log( "&ensp;<&ensp;" + "doPost start" )
@@ -723,42 +759,33 @@ const doPost = async(req, url) => { //jsonオブジェクトを渡して、json�
   }
 }
 
+const postname=async(args)=>{
+  if (typeof(args)!=="undefined" && args != null) await storage.set("_postname", args)
+  return await storage.get("_postname")
+}
 
+const changename=async()=>{
+  console.log( "&ensp;<&ensp;" + "change name..." )
+  let pn = await storage.get("_postname")
+  const res = prompt("post name?", (postname==undefined)?"":pn)
+  pn = await postname(res)
+  console.log( "&ensp;<&ensp;" + "name: " + pn )
+}
 
-const viewstorage=async()=>{
-  let disp="&ensp;<&ensp;" + "view storage...\n"
-  let jo = await storage()
-  const js=JSON.stringify(jo)
-  let size = js.length
-  let sizestr=""
-  if (size>1000000) {
-    size = Math.ceil(size / 100000) / 10
-    sizestr = size + "MB"
-  } else if (size>1000) {
-    size = Math.ceil(size / 100) / 10
-    sizestr = size + "KB"
-  } else {
-    sizestr = size + "byte"
-  }
-  disp = disp + `"` + storageName + `"(` + sizestr + `): `
-  delete jo.logsw
-  delete jo.logwin
-  disp = disp + JSON.stringify(jo, null, "&ensp;")
-  disp = disp + ",\n"
-  disp = disp.split("\n").join("<br>")
-  console.log(disp)
+const posturl=async(args)=>{
+  if (typeof(args)!=="undefined" && args != null) await storage.set("_posturl", args)
+  return await storage.get("_posturl")
 }
 
 const changeurl=async()=>{
-  console.log( "&ensp;<&ensp;" + "change URL..." )
-  let posturl = await storage.get("_posturl")
-  const res = prompt("post URL?", (posturl==undefined)?"":posturl)
-  if (res != null) await storage.set("_posturl", res)
-  posturl = await storage.get("_posturl")
-  console.log( "&ensp;<&ensp;" + "URL: " + posturl )
+  console.log( "&ensp;<&ensp;" + "change url..." )
+  let pu = await storage.get("_posturl")
+  const res = prompt("post url?", (posturl==undefined)?"":pu)
+  pu = await posturl(res)
+  console.log( "&ensp;<&ensp;" + "url: " + pu )
 }
 
-const send=async()=>{
+const postsend=async()=>{
   console.log( "&ensp;<&ensp;" + "send..." )
   try {
     let obj = await storage()
@@ -767,27 +794,31 @@ const send=async()=>{
       "action":"set",
       "data":obj,
     })
-    console.log( "&ensp;<&ensp;" + "send success, postname:" + jo.postname )
-    if (jo.postname) await storage.set("_postname", jo.postname)
+    console.log( "&ensp;<&ensp;" + "send success, postname:" + jo.info.postname )
+    if (jo.info.postname) await storage.set("_postname", jo.info.postname)
+    return jo.info.postname
   } catch(e) {
     console.log( "&ensp;<&ensp;" + "send catch(e): " + e )
     alert(e)
   }
 }
 
-const recv=async()=>{
+const postrecv=async()=>{
   console.log( "&ensp;<&ensp;" + "receive..." )
   try {
     const postname = await storage.get("_postname")
     const jo = await doPost({
       "action":"get",
       "data":{
-        "postname":postname,
+        "info":{
+          "postname":postname,
+        },
       },
     })
-    console.log( "&ensp;<&ensp;" + "receive success, postname:" + jo.postname )
+    console.log( "&ensp;<&ensp;" + "receive success, postname:" + jo.info.postname )
     await storage.set("_recvtime", getDateTime())
     if (jo.app) await storage_app(jo.app)
+    return jo.app
   } catch(e) {
     console.log( "&ensp;<&ensp;" + "receive catch(e): " + e )
     alert(e)
@@ -823,6 +854,8 @@ const getViewMode=async()=>{
     return viewmode
   }
 }
+
+
 
 const addevents=async()=>{
   //storageSetFuncs.push(()=>{if(isshow)view()})
@@ -894,20 +927,19 @@ const addevents=async()=>{
               console.log( "&ensp;<&ensp;" + `changed log view mode: ${viewmode}` )
               break
             case "@dl":
-              console.log( "&ensp;<&ensp;" + "delete log start" )
-              await storage_logsw.clear()
-              await storage_logwin.clear()
-              document.getElementById(`${p}viewerspan`).innerHTML = ""
-              console.log( "&ensp;<&ensp;" + "delete log end" )
+              await deletelog()
+              break
+            case "@cn":
+              changename()
               break
             case "@cu":
               changeurl()
               break
             case "@su":
-              send()
+              postsend()
               break
             case "@ru":
-              recv()
+              postrecv()
               break
             case "@ra":
               console.log( "&ensp;<&ensp;" + "reload app..." )
@@ -974,6 +1006,11 @@ Object.assign(globalThis.Console,{
   "settings":settings,
   "storage":storage,
   "setfuncs":storageSetFuncs,
+  "deletelog":deletelog,
+  "postname":postname,
+  "posturl":posturl,
+  "postsend":postsend,
+  "postrecv":postrecv,
 })
 return storage
 }
