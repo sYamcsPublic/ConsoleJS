@@ -1,6 +1,6 @@
 "use strict";
 globalThis.Console=async(args={})=>{
-const VERSION = "0.17.0"
+const VERSION = "0.18.0"
 const iswin = (typeof(window)!=="undefined")
 const issw  = (typeof(ServiceWorkerGlobalScope)!=="undefined")
 const canbcc = (typeof(globalThis.BroadcastChannel)!=="undefined")
@@ -752,7 +752,7 @@ const viewstorage=async()=>{
 const changeurl=async()=>{
   console.log( "&ensp;<&ensp;" + "change URL..." )
   let posturl = await storage.get("_posturl")
-  const res = prompt("post name?", (posturl==undefined)?"":posturl)
+  const res = prompt("post URL?", (posturl==undefined)?"":posturl)
   if (res != null) await storage.set("_posturl", res)
   posturl = await storage.get("_posturl")
   console.log( "&ensp;<&ensp;" + "URL: " + posturl )
