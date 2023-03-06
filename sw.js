@@ -5,7 +5,7 @@ importScripts("./Console.js")
 let app;Console.promise.then(async()=>{
   await Console.settings({storage:true})
   app = Console.storage
-  await app.set("versw", "0.15.0")
+  await app.set("versw", "0.16.0")
 
   const inspection_func=async()=>{
     console.log("[sw]---- inspection func start")
@@ -24,6 +24,9 @@ let app;Console.promise.then(async()=>{
 
     console.log("[sw]---- app watch")
     console.log(`[sw]app:${JSON.stringify(await app())}`)
+
+    console.log("[sw]---- app keys")
+    console.log(`[sw]app:${JSON.stringify(await app.keys())}`)
 
 /*
     console.log("[sw]---- app replace")

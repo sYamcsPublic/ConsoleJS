@@ -1,6 +1,6 @@
 "use strict";
 globalThis.Console=async(args={})=>{
-const VERSION = "0.21.0"
+const VERSION = "0.22.0"
 const iswin = (typeof(window)!=="undefined")
 const issw  = (typeof(ServiceWorkerGlobalScope)!=="undefined")
 const canbcc = (typeof(globalThis.BroadcastChannel)!=="undefined")
@@ -312,6 +312,10 @@ storagedict.get=async(k)=>{
   }
   return v
 }
+storagedict.keys=async()=>{
+  let obj = await storagefunc()
+  return Object.keys(obj)
+}
 storagedict.delete=async(k)=>{
   let r
   if (isStoragePrefix(k)) {
@@ -340,7 +344,7 @@ storagedict.clear=async()=>{
   return r
 }
 
-storagedict.getKeysValues=async()=>{
+storagedict.getAllKeysValues=async()=>{
   const obj_app = await storage_app()
   const obj_info = await storage_info()
   const obj_logsw = await storage_logsw()
@@ -715,7 +719,7 @@ const delCache=async()=>{
 
 const viewstorage=async()=>{
   let disp="&ensp;<&ensp;" + "view storage...\n"
-  let jo = await storage.getKeysValues()
+  let jo = await storage.getAllKeysValues()
   const js=JSON.stringify(jo)
   let size = js.length
   let sizestr=""
@@ -800,7 +804,7 @@ const changeurl=async()=>{
 const postsend=async()=>{
   console.log( "&ensp;<&ensp;" + "send..." )
   try {
-    let obj = await storage.getKeysValues()
+    let obj = await storage.getAllKeysValues()
     await storage.set("_sendtime", getDateTime())
     const jo = await doPost({
       "action":"set",
