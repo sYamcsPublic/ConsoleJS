@@ -1,6 +1,6 @@
 "use strict";
 globalThis.Console=async(args={})=>{
-const VERSION = "0.20.0"
+const VERSION = "0.21.0"
 const iswin = (typeof(window)!=="undefined")
 const issw  = (typeof(ServiceWorkerGlobalScope)!=="undefined")
 const canbcc = (typeof(globalThis.BroadcastChannel)!=="undefined")
@@ -354,12 +354,18 @@ storagedict.getKeysValues=async()=>{
   return obj
 }
 
-const storagefunc=async()=>{
-  let obj = await storage_app()
-  for (let key of (await storage_info.keys())) {
-    obj["_"+key] = await storage_info.get(key)
+const storagefunc=async(args)=>{
+  if (typeof(args)==="object") {
+    await storage_app().clear
+    await storage_app(args)
+    return args
+  } else {
+    let obj = await storage_app()
+    for (let key of (await storage_info.keys())) {
+      obj["_"+key] = await storage_info.get(key)
+    }
+    return obj
   }
-  return obj
 }
 const storage=Object.assign(storagefunc, storagedict)
 

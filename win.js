@@ -5,7 +5,7 @@ await Console.promise
 //await Console.settings({storage:true, show:false, pos:"left-top", posx:-65, posy:-65})
 await Console.settings({storage:true})
 const app = Console.storage
-await app.set("verwin", "0.7.0")
+await app.set("verwin", "0.8.0")
 
 
 
@@ -40,6 +40,12 @@ const inspection_func=async()=>{
 
   console.log("[win]---- watch app._localtime")
   console.log(`[win]${await app.get("_localtime")}`)
+
+/*
+  console.log("[win]---- app replace")
+  await app({count:10, win3:3, winobj1:{k1:1}, winarr:[3,4]})
+  console.log(`[win]app:${JSON.stringify(await app())}`)
+*/
 
   console.log("[win]---- inspection func end")
 }
