@@ -1,6 +1,6 @@
 "use strict";
 globalThis.Console=async(args={})=>{
-const VERSION = "0.19.0"
+const VERSION = "0.20.0"
 const iswin = (typeof(window)!=="undefined")
 const issw  = (typeof(ServiceWorkerGlobalScope)!=="undefined")
 const canbcc = (typeof(globalThis.BroadcastChannel)!=="undefined")
@@ -102,9 +102,9 @@ const idbfunc=(args={})=>{
     })
   }
 
-  idbdict.obj=(storename)=>{
+  idbdict.obj=(objname)=>{
 
-    if (!objnames.includes(storename)) return undefined
+    if (!objnames.includes(objname)) return undefined
 
     const commonfunc=(f, k="", v="")=>{
       return new Promise((resolve, reject)=>{
@@ -112,20 +112,20 @@ const idbfunc=(args={})=>{
           let result
           switch(f){
             case "set":
-              globalThis[dbname][storename][k]=v
+              globalThis[dbname][objname][k]=v
               result=true
               break
             case "get":
-              result=globalThis[dbname][storename][k]
+              result=globalThis[dbname][objname][k]
               break
-            case "getAllKeys":
-              result=Object.keys(globalThis[dbname][storename])
+            case "keys":
+              result=Object.keys(globalThis[dbname][objname])
               break
             case "delete":
-              delete globalThis[dbname][storename][k]
+              delete globalThis[dbname][objname][k]
               break
             case "clear":
-              globalThis[dbname][storename]={}
+              globalThis[dbname][objname]={}
               break
             default:
               break
@@ -138,20 +138,20 @@ const idbfunc=(args={})=>{
             let req
             switch(f){
               case "set":
-                req = ev.target.result.transaction(storename, "readwrite").objectStore(storename).put(v, k)
+                req = ev.target.result.transaction(objname, "readwrite").objectStore(objname).put(v, k)
                 //console.info(`[set]k:${k},v:${v}`)
                 break
               case "get":
-                req = ev.target.result.transaction(storename, "readonly").objectStore(storename).get(k)
+                req = ev.target.result.transaction(objname, "readonly").objectStore(objname).get(k)
                 break
-              case "getAllKeys":
-                req = ev.target.result.transaction(storename, "readonly").objectStore(storename).getAllKeys()
+              case "keys":
+                req = ev.target.result.transaction(objname, "readonly").objectStore(objname).getAllKeys()
                 break
               case "delete":
-                req = ev.target.result.transaction(storename, "readwrite").objectStore(storename).delete(k)
+                req = ev.target.result.transaction(objname, "readwrite").objectStore(objname).delete(k)
                 break
               case "clear":
-                req = ev.target.result.transaction(storename, "readwrite").objectStore(storename).clear()
+                req = ev.target.result.transaction(objname, "readwrite").objectStore(objname).clear()
                 break
               default:
                 break
@@ -166,29 +166,29 @@ const idbfunc=(args={})=>{
       })
     }
 
-    const storedict={}
-    storedict.set=(k, v)=>commonfunc("set", k, v)
-    storedict.get=(k)=>commonfunc("get", k)
-    storedict.getAllKeys=()=>commonfunc("getAllKeys")
-    storedict.delete=(k)=>commonfunc("delete", k)
-    storedict.clear=()=>commonfunc("clear")
+    const objdict={}
+    objdict.set=(k, v)=>commonfunc("set", k, v)
+    objdict.get=(k)=>commonfunc("get", k)
+    objdict.keys=()=>commonfunc("keys")
+    objdict.delete=(k)=>commonfunc("delete", k)
+    objdict.clear=()=>commonfunc("clear")
 
-    const storefunc=(args)=>{
+    const objfunc=(args)=>{
       if (typeof(args)==="object") {
-        storedict.clear()
-        for(let key in args) storedict.set(key, args[key])
+        objdict.clear()
+        for(let key in args) objdict.set(key, args[key])
       } else {
         return new Promise((resolve, reject)=>{
-          storedict.getAllKeys().then(keys=>{
+          objdict.keys().then(keys=>{
             let promises=[], o={}
-            for(let key of keys) promises.push(storedict.get(key).then(v=>o[key]=v))
+            for(let key of keys) promises.push(objdict.get(key).then(v=>o[key]=v))
             Promise.all(promises).then(()=>resolve(o))
           })
         })
       }
     }
 
-    return Object.assign(storefunc, {...storedict})
+    return Object.assign(objfunc, {...objdict})
   }
 
   return new Promise((resolve, reject)=>{
@@ -210,7 +210,7 @@ const idbfunc=(args={})=>{
   })
 }
 
-const idb=Object.assign(idbfunc, {...idbdict})
+const IndexedDB=Object.assign(idbfunc, {...idbdict})
 
 
 
@@ -218,7 +218,7 @@ const storageName = "ConsoleIDB"
 let storages, storage_app, storage_info, storage_logsw, storage_logwin
 
 const storagesinit=async(fake=true)=>{
-  storages = await idb({
+  storages = await IndexedDB({
     "fake": fake,
     "version": 1,
     "dbname": storageName,
@@ -253,16 +253,14 @@ let setque=[], setrunning=false
 const storagedict={}
 storagedict.set=async(k, v)=>{
   setque.push([k, v])
-  await(()=>{
-    return new Promise(resolve=>{
-      let id=setInterval(()=>{
-        if (!setrunning) {
-          clearInterval(id)
-          resolve()
-        }
-      }, 1)
-    })
-  })()
+  await new Promise(resolve=>{
+    let id=setInterval(()=>{
+      if (!setrunning) {
+        clearInterval(id)
+        resolve()
+      }
+    }, 1)
+  })
   setrunning=true
   while (setque.length>0) {
     const args= setque.shift()
@@ -342,7 +340,7 @@ storagedict.clear=async()=>{
   return r
 }
 
-const storagefunc=async()=>{
+storagedict.getKeysValues=async()=>{
   const obj_app = await storage_app()
   const obj_info = await storage_info()
   const obj_logsw = await storage_logsw()
@@ -352,6 +350,14 @@ const storagefunc=async()=>{
     "info":obj_info,
     "logsw":obj_logsw,
     "logwin":obj_logwin,
+  }
+  return obj
+}
+
+const storagefunc=async()=>{
+  let obj = await storage_app()
+  for (let key of (await storage_info.keys())) {
+    obj["_"+key] = await storage_info.get(key)
   }
   return obj
 }
@@ -703,7 +709,7 @@ const delCache=async()=>{
 
 const viewstorage=async()=>{
   let disp="&ensp;<&ensp;" + "view storage...\n"
-  let jo = await storage()
+  let jo = await storage.getKeysValues()
   const js=JSON.stringify(jo)
   let size = js.length
   let sizestr=""
@@ -788,7 +794,7 @@ const changeurl=async()=>{
 const postsend=async()=>{
   console.log( "&ensp;<&ensp;" + "send..." )
   try {
-    let obj = await storage()
+    let obj = await storage.getKeysValues()
     await storage.set("_sendtime", getDateTime())
     const jo = await doPost({
       "action":"set",
