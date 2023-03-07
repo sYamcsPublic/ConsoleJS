@@ -1,6 +1,6 @@
 "use strict";
 globalThis.Console=async(args={})=>{
-const VERSION = "0.22.0"
+const VERSION = "0.23.0"
 const iswin = (typeof(window)!=="undefined")
 const issw  = (typeof(ServiceWorkerGlobalScope)!=="undefined")
 const canbcc = (typeof(globalThis.BroadcastChannel)!=="undefined")
@@ -845,19 +845,23 @@ const postrecv=async()=>{
 
 let isshow=false
 const view=async()=>{
-  let jo={}, el=""
+  let arr_sw=[]
+  const jo_sw = await storage_logsw()
+  for (let key in jo_sw) arr_sw.push(`<div class="${p}line"><div class="${p}str">${[key]}|${jo_sw[key]}</div></div>`)
+  let arr_win=[]
+  const jo_win = await storage_logwin()
+  for (let key in jo_win) arr_win.push(`<div class="${p}line"><div class="${p}str">${[key]}|${jo_win[key]}</div></div>`)
+  let arr=[]
   const viewmode = await storage.get("_viewmode")
   if (typeof(viewmode)==="undefined" || viewmode=="all") {
-    const jo_sw = await storage_logsw()
-    const jo_win = await storage_logwin()
-    jo = Object.assign(jo_sw, jo_win)
+    arr=arr_sw.concat(arr_win)
   } else if (viewmode=="sw") {
-    jo = await storage_logsw()
+    arr=arr_sw.concat()
   } else if (viewmode=="other than sw") {
-    jo = await storage_logwin()
+    arr=arr_win.concat()
   }
-  Object.keys(jo).sort().forEach(key=>el = el + `<div class="${p}line"><div class="${p}str">${[key]}|${jo[key]}</div></div>`)
-  document.getElementById(`${p}viewerspan`).innerHTML = el
+  arr.sort()
+  document.getElementById(`${p}viewerspan`).innerHTML = arr.join("")
   const viewer = document.getElementById(`${p}viewer`)
   viewer.scrollTop = viewer.scrollHeight
 }
