@@ -1,6 +1,6 @@
 "use strict";
 globalThis.Console=async(args={})=>{
-const VERSION = "0.23.0"
+const VERSION = "0.24.0"
 const iswin = (typeof(window)!=="undefined")
 const issw  = (typeof(ServiceWorkerGlobalScope)!=="undefined")
 const canbcc = (typeof(globalThis.BroadcastChannel)!=="undefined")
@@ -387,7 +387,7 @@ const addconsole=()=>{
         consoleLogBackup(getDateTime() + "|" + arg)
         await storage.set("_log", arg)
       }
-      if (isshow) view()
+      if (isshow) viewlog()
     },
   })
 }
@@ -843,25 +843,33 @@ const postrecv=async()=>{
 
 
 
-let isshow=false
-const view=async()=>{
+let isshow=false, arr_viewer=[]
+const viewlog=async()=>{
   let arr_sw=[]
   const jo_sw = await storage_logsw()
   for (let key in jo_sw) arr_sw.push(`<div class="${p}line"><div class="${p}str">${[key]}|${jo_sw[key]}</div></div>`)
   let arr_win=[]
   const jo_win = await storage_logwin()
   for (let key in jo_win) arr_win.push(`<div class="${p}line"><div class="${p}str">${[key]}|${jo_win[key]}</div></div>`)
-  let arr=[]
+  let arr_all=[]
   const viewmode = await storage.get("_viewmode")
   if (typeof(viewmode)==="undefined" || viewmode=="all") {
-    arr=arr_sw.concat(arr_win)
+    arr_all=arr_sw.concat(arr_win)
   } else if (viewmode=="sw") {
-    arr=arr_sw.concat()
+    arr_all=arr_sw.concat()
   } else if (viewmode=="other than sw") {
-    arr=arr_win.concat()
+    arr_all=arr_win.concat()
   }
-  arr.sort()
-  document.getElementById(`${p}viewerspan`).innerHTML = arr.join("")
+  arr_all.sort()
+  let arr_diff=[]
+  if (arr_viewer.length === 0) {
+    document.getElementById(`${p}viewerspan`).innerHTML=""
+    arr_diff=arr_all.concat()
+  } else {
+    arr_diff=arr_all.filter(i=>arr_viewer.indexOf(i)==-1)
+  }
+  document.getElementById(`${p}viewerspan`).insertAdjacentHTML("beforeend", arr_diff.join(""))
+  arr_viewer=arr_viewer.concat(arr_diff)
   const viewer = document.getElementById(`${p}viewer`)
   viewer.scrollTop = viewer.scrollHeight
 }
@@ -878,11 +886,11 @@ const getViewMode=async()=>{
 
 
 const addevents=async()=>{
-  //storageSetFuncs.push(()=>{if(isshow)view()})
+  //storageSetFuncs.push(()=>{if(isshow)viewlog()})
   document.getElementById(`${p}toggle`).addEventListener("click",async()=>{
     console.log("toggle click")
     isshow=(isshow)?false:true
-    if (isshow) view()
+    if (isshow) viewlog()
     const rapper = document.getElementById(`${p}console`)
     rapper.classList.toggle(`${p}hide`)
     //if (isshow) document.getElementById(`${p}cmd`).focus()
@@ -900,7 +908,7 @@ const addevents=async()=>{
   })
 */
 
-  document.getElementById(`${p}cmd`).addEventListener("focus",(e)=>view())
+  document.getElementById(`${p}cmd`).addEventListener("focus",(e)=>viewlog())
 
   document.getElementById(`${p}cmd`).addEventListener("keydown",async(e)=>{
     //console.info(e)
@@ -944,6 +952,7 @@ const addevents=async()=>{
               }
               await storage.set("_viewmode", viewmode)
               document.getElementById(`${p}cmdclnow`).innerHTML = viewmode
+              arr_viewer=[]
               console.log( "&ensp;<&ensp;" + `changed log view mode: ${viewmode}` )
               break
             case "@dl":
