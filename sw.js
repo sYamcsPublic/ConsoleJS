@@ -5,7 +5,7 @@ importScripts("./Console.js")
 let app;Console.promise.then(async()=>{
   await Console.settings({storage:true})
   app = Console.storage
-  await app.set("versw", "0.16.0")
+  await app.set("versw", "0.17.0")
 
   const inspection_func=async()=>{
     console.log("[sw]---- inspection func start")
@@ -23,15 +23,15 @@ let app;Console.promise.then(async()=>{
     console.log(`[sw]app.count:${await app.get("count")}`)
 
     console.log("[sw]---- app watch")
-    console.log(`[sw]app:${JSON.stringify(await app())}`)
+    console.log(`[sw]app-KeysValues:${JSON.stringify(await app())}`)
 
     console.log("[sw]---- app keys")
-    console.log(`[sw]app:${JSON.stringify(await app.keys())}`)
+    console.log(`[sw]app-Keys:${JSON.stringify(await app.keys())}`)
 
 /*
     console.log("[sw]---- app replace")
     await app({count:20, sw4:4, swobj1:{swk2:2}, swarr:[4,5]})
-    console.log(`[sw]app:${JSON.stringify(await app())}`)
+    console.log(`[sw]app-KeysValues:${JSON.stringify(await app())}`)
 */
 
     console.log("[sw]---- inspection func end")

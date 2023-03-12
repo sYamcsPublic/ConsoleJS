@@ -1,6 +1,6 @@
 "use strict";
 globalThis.Console=async(args={})=>{
-const VERSION = "0.24.0"
+const VERSION = "0.25.0"
 const iswin = (typeof(window)!=="undefined")
 const issw  = (typeof(ServiceWorkerGlobalScope)!=="undefined")
 const canbcc = (typeof(globalThis.BroadcastChannel)!=="undefined")
@@ -743,9 +743,11 @@ const viewstorage=async()=>{
 
 const deletelog=async()=>{
   console.log( "&ensp;<&ensp;" + "delete log start" )
+  await new Promise(resolve=>setTimeout(resolve, 500))
+  document.getElementById(`${p}viewerspan`).innerHTML = ""
+  arr_viewer=[]
   await storage_logsw.clear()
   await storage_logwin.clear()
-  document.getElementById(`${p}viewerspan`).innerHTML = ""
   console.log( "&ensp;<&ensp;" + "delete log end" )
   return true
 }
@@ -938,7 +940,8 @@ const addevents=async()=>{
               break
             case "@ds":
               console.log( "&ensp;<&ensp;" + "delete storage start" )
-              initstorage()
+              await deletelog()
+              await initstorage()
               console.log( "&ensp;<&ensp;" + "delete storage end" )
               break
             case "@cl":
@@ -981,7 +984,15 @@ const addevents=async()=>{
           }
         } else {
           try {
-            console.log( "&ensp;<&ensp;" + eval(input) )
+            //console.log( "&ensp;<&ensp;" + eval(input) )
+            if (input.indexOf("Console.settings")===-1) {
+              let AsyncFunction = Object.getPrototypeOf(async function(){}).constructor
+              let f = new AsyncFunction(`return ${input}`)
+              let r = await f()
+              console.log( "&ensp;<&ensp;" + r )
+            } else {
+              throw `Cannot run "Console.settings"`
+            }
           } catch(e) {
             console.log( "&ensp;<&ensp;" + e )
           }
