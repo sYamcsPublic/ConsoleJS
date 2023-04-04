@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="jp">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1, shrink-to-fit=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon" href="./icon.png" sizes="180x180">
+<link rel="icon" href="./icon.png" type="image/png">
+<link rel="manifest" href="./manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Black&display=swap">
+<title>Console.js - sample</title>
+</head>
+<body width="0px" height="0px" style="margin:0"></body>
+<script defer src="./Console.js"></script>
+
+<script defer src="./win.js"></script>
+<script>navigator.serviceWorker.register("./sw.js")</script>
+<script>
+window.addEventListener("DOMContentLoaded",async()=>{
+  console.log("[idx]index.html start")
+  await Console.promise
+  await Console.settings({storage:true}) //Commented because it is implemented in win.js
+  const app = Console.storage
+  await app.set("veridx", "1.0.0")
+
+  //any script synced with Console
+
+  console.log("[idx]index.html end")
+})
+</script>
+
+<!--
+<script>
+window.addEventListener("DOMContentLoaded",async()=>{
+  let app;Console.promise.then(async()=>{
+    app = Console.storage
+    //any script synced with Console
+    console.log("[idx]2")
+  })
+  //any script asynced with Console
+  console.log("[idx]1")
+})
+</script>
+-->
+
+</html>
