@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>Console.js Readme</title>
+<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1, shrink-to-fit=no">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.2.0/github-markdown.min.css" integrity="sha512-Ya9H+OPj8NgcQk34nCrbehaA0atbzGdZCI2uCbqVRELgnlrh8vQ2INMnkadVMSniC54HChLIh5htabVuKJww8g==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+</head>
+<style>
+.markdown-body {
+  box-sizing: border-box;
+  min-width: 200px;
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 45px;
+}
+@media (max-width: 767px) {
+  .markdown-body {
+    padding: 15px;
+  }
+}
+</style>
+<body></body>
+<script>
+
+const doGet=async(url)=>{
+  try {
+    const res = await fetch(url)
+    return res.text()
+  } catch(e) {
+    console.log(e)
+    throw e
+  }
+}
+
+const doPost=async(url, req)=>{
+  try {
+    const res = await fetch(url, {
+      "method": "post",
+      "Content-Type": "application/json",
+      "body": JSON.stringify(req),
+    })
+    return res.text()
+  } catch(e) {
+    console.log(e)
+    throw e
+  }
+}
+
+window.onload=async()=>{
+  const tMarkdown = await doGet("./readme.md");
+  const hContent = await doPost("https://api.github.com/markdown", {"text": tMarkdown})
+  const eContent = document.createElement("div");
+  eContent.innerHTML=hContent;
+  eContent.classList.add("markdown-body");
+  document.querySelector("body").appendChild(eContent);
+}
+
+</script>
+</html>

@@ -1,11 +1,15 @@
 "use strict";
 globalThis.Console=async(args={})=>{
-const VERSION = "1.0.0"
+const VERSION = "2.1.0"
 const iswin = (typeof(window)!=="undefined")
 const issw  = (typeof(ServiceWorkerGlobalScope)!=="undefined")
 const canbcc = (typeof(globalThis.BroadcastChannel)!=="undefined")
 
 
+
+/**
+ * common
+ */
 
 const getDateTime=()=>{
   const toDoubleDigits=(i)=>{
@@ -32,7 +36,7 @@ const getDateTime=()=>{
   const Minutes = toDoubleDigits(DD.getMinutes())
   const Seconds = toDoubleDigits(DD.getSeconds())
   const mSeconds = toTripleDigits(DD.getMilliseconds())
-  const res = Year + "/" + Month + "/" + Day + "-" + Hours + ":" + Minutes + ":" + Seconds + ":" + mSeconds
+  const res = Year + "-" + Month + "-" + Day + "T" + Hours + ":" + Minutes + ":" + Seconds + "." + mSeconds
   return res
 }
 
@@ -44,12 +48,12 @@ const getPrefix=()=>{
       if (href.slice(-1)=="/") {
         return href
       } else if (href.slice(-4)=="html") {
-        return href.substr(0, href.lastIndexOf("/")+1)
+        return href.slice(0, href.lastIndexOf("/")+1)
       } else {
         return href + "/"
       }
     } else {
-      return href.substr(0, pos)
+      return href.slice(0, pos)
     }
   } else {
     const scope = registration.scope
@@ -62,7 +66,421 @@ const getPrefix=()=>{
   }
 }
 
+// 文字省略
+const truncateText=(str, maxLength = 30)=>{
+  // 文字列が指定した長さより長い場合、切り詰めて"..."を追加
+  return str.length > maxLength ? str.slice(0, maxLength) + '...' : str;
+}
 
+
+
+/**
+ * gis
+ */
+const gis={}
+gis.isProcessing = false; // 処理中フラグ
+
+// 認証ヘッダー付きでfetchを実行
+gis.authfetch=async(url, options={})=>{
+  // console.log(`[gis.authfetch] start url:${url}, options:${JSON.stringify(options)}`);
+  console.log(`[gis.authfetch] start url:${url}, options:${truncateText(JSON.stringify(options))}`);
+  try {
+    if (!navigator.onLine) throw new Error(`ネットワークに接続されていません。接続後にアプリを再起動してください。`);
+    if (!gis.accessToken) throw new Error(`トークンがないため認証不可。アプリを再起動してください。`);
+    const authOptions = {
+      ...options,
+      headers: { ...options.headers, 'Authorization': `Bearer ${gis.accessToken}` }
+    };
+    const response = await fetch(url, authOptions);
+    console.log(`[gis.authfetch] status: ${response.status}`);
+    if (!response.ok) {
+      const errorDetail = await response.json().catch(() => ({}));
+      console.log(`[gis.authfetch] errorDetail: ${JSON.stringify(errorDetail)}`); // エラー詳細表示
+      if (response.status === 401) throw new Error(`通信時にエラーが発生しました。セッションの有効期限が切れた可能性が高いため、アプリを再起動してください。`); // 認証情報の不足、もしくは無効
+      if (response.status === 403) throw new Error(`通信時にエラーが発生しました。ログイン時にGoogleDriveアクセス許可欄にチェックしていない、もしくは反映に時間がかかっている可能性があります。アプリを複数回再起動してください。`); // 認証が失敗
+    }
+    console.log(`[gis.authfetch] normal end`);
+    return response;
+  } catch(e) {
+    const msg = `[gis.authfetch] error:${e}`
+    console.log(msg); throw new Error(msg);
+    // console.log(msg); alert(msg); throw new Error(msg);
+  }
+}
+
+// ファイルを保存（新規作成 or 更新）
+gis.saveFile=async(filename, contentObj)=>{
+  const fileId = await gis.findFileId(filename);
+  const boundary = 'sync_boundary_' + Date.now();
+  const mimeType = 'text/plain';
+  const metadata = { name: filename, mimeType: mimeType };
+  if (!fileId) {
+    // 新規作成 (Multipart upload)
+    const body = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n` +
+                 `--${boundary}\r\nContent-Type: ${mimeType}\r\n\r\n${JSON.stringify(contentObj, null, "  ")}\r\n` +
+                 `--${boundary}--`;
+    await gis.authfetch(`https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart`, {
+      method: 'POST',
+      headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
+      body: body
+    });
+  } else {
+    // 既存更新 (Simple media update)
+    await gis.authfetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': mimeType },
+      body: JSON.stringify(contentObj, null, "  ")
+    });
+  }
+};
+
+// ファイル名からファイルIDを検索する
+gis.findFileId=async(filename)=>{
+  const q = encodeURIComponent(`name = '${filename}' and 'root' in parents and trashed = false`);
+  const res = await gis.authfetch(`https://www.googleapis.com/drive/v3/files?q=${q}`);
+  const json = await res.json();
+  return json.files && json.files.length > 0 ? json.files[0].id : null;
+};
+
+// 送信用ログ配列作成
+gis.makeLogArray=async()=>{
+  let arr_sw=[]
+  const jo_sw = await storage_logsw()
+  for (let key in jo_sw) arr_sw.push(`${[key]}|${jo_sw[key]}`)
+  let arr_win=[]
+  const jo_win = await storage_logwin()
+  for (let key in jo_win) arr_win.push(`${[key]}|${jo_win[key]}`)
+  let arr_all=[]
+  arr_all=arr_sw.concat(arr_win)
+  arr_all.sort()
+  return arr_all
+}
+
+// ログ送信
+gis.sendLog=async()=>{
+  gis.isProcessing = true;
+  console.log(`[gis.sendLog] start`);
+  const LOG_FILE = `${gis.appName}.log.json.txt`;
+  try {
+    if (!navigator.onLine) throw new Error(`ネットワークに接続されていません。接続後に再度実施してください。`);
+    const user = await storage_info.get("user")
+    if (!user) throw new Error(`ユーザ情報が存在しません。ログイン後に再度実施してください。`);
+    const logText = await gis.makeLogArray()
+    await gis.saveFile(LOG_FILE, logText); // ログファイルを保存
+    console.log(`[gis.sendLog] Driveへの送信完了`);
+    gis.isProcessing = false;
+  } catch (e) {
+    console.log(`[gis.sendLog] error:`, e);
+    // alert("送信中にエラーが発生しました。");
+    gis.isProcessing = false;
+  }
+  console.log(`[gis.sendLog] end`);
+};
+
+// アプリデータ同期
+gis.syncAppData=async()=>{
+  gis.isProcessing = true;
+  console.log(`[gis.syncAppData] start`);
+  const DT_FILE = `${gis.appName}.datetime.json.txt`;
+  const DATA_FILE = `${gis.appName}.data.json.txt`;
+
+  try {
+    if (!navigator.onLine) throw new Error(`ネットワークに接続されていません。接続後に再度実施してください。`);
+    const user = await storage_info.get("user")
+    if (!user) throw new Error(`ユーザ情報が存在しません。ログイン後に再度実施してください。`);
+
+    // 1. ローカルデータの取得（storageオブジェクトを想定）
+    const localData = await storage_app.get(user.id) || { datetime: "1970-01-01T00:00:00.000", data: {} };
+    
+    // 2. Drive上の datetime ファイルを検索
+    const dtFileId = await gis.findFileId(DT_FILE);
+    let driveDtObj = null;
+
+    if (dtFileId) {
+      const dtRes = await gis.authfetch(`https://www.googleapis.com/drive/v3/files/${dtFileId}?alt=media`);
+      driveDtObj = await dtRes.json();
+    }
+
+    // 3. 最新性の判定
+    const localTime = new Date(localData.datetime).getTime();
+    const driveTime = driveDtObj ? new Date(driveDtObj.datetime).getTime() : 0;
+    console.log(`[gis.syncAppData] local:${localData.datetime}, drive:${driveDtObj?.datetime || 'none'}`);
+
+    if (!driveDtObj || localTime > driveTime) {
+      // -------------------------------------------
+      // ローカルが最新：Driveへアップロード
+      // -------------------------------------------
+      console.log(`[gis.syncAppData] ローカルが最新です。Driveへ送信します。`);
+      await gis.saveFile(DT_FILE, { datetime: localData.datetime }); // 日時ファイルを保存
+      await gis.saveFile(DATA_FILE, localData.data); // データファイルを保存
+      console.log(`[gis.syncAppData] Driveへの同期完了`);
+    } else {
+      // -------------------------------------------
+      // Driveが最新：Driveからダウンロード
+      // -------------------------------------------
+      console.log(`[gis.syncAppData] Driveが最新です。受信して上書きします。`);
+      const dataFileId = await gis.findFileId(DATA_FILE);
+      if (dataFileId) {
+        const dataRes = await gis.authfetch(`https://www.googleapis.com/drive/v3/files/${dataFileId}?alt=media`);
+        const driveDataContent = await dataRes.json();
+        const newLocal = {
+          datetime: driveDtObj.datetime,
+          data: driveDataContent
+        };
+        await storage_app.set(user.id, newLocal); // ローカルを更新
+        console.log(`[gis.syncAppData] ローカルの更新完了`);
+      }
+    }
+    gis.isProcessing = false;
+  } catch (e) {
+    console.log(`[gis.syncAppData] error:`, e);
+    // alert("同期中にエラーが発生しました。");
+    gis.isProcessing = false;
+  }
+  console.log(`[gis.syncAppData] end`);
+};
+
+// ユーザー情報取得
+gis.fetchUserInfo=async()=>{
+  try {
+    const url = 'https://www.googleapis.com/oauth2/v3/userinfo';
+    const res = await gis.authfetch(url);
+    console.log(`[gis.fetchUserInfo] status: ${res.status}`);
+    if (!res.ok) throw new Error(`ユーザ情報の取得に失敗しました。`);
+    const jsonTxt = await res.text();
+    // console.log(`[gis.fetchUserInfo] jsonTxt: ${jsonTxt}`);
+    const jsonObj = JSON.parse(jsonTxt);
+    // console.log(`[gis.fetchUserInfo] jsonObj: ${JSON.stringify(jsonObj)}`);
+    return {
+      id: jsonObj.sub,
+      name: jsonObj.name,
+      picture: jsonObj.picture,
+      email: jsonObj.email,
+    }
+  } catch (e) {
+    console.log(`[gis.fetchUserInfo] error: ${e}`);
+  }
+}
+
+// ログイン・ログアウトに伴うコンソール画面リフレッシュ
+gis.refreshInOut=async()=>{
+  const settings = await storage.get(".settings")
+  if (!settings.gis) {
+    document.getElementById(`${p}divli`).classList.add(`${p}hide`)
+    document.getElementById(`${p}divlo`).classList.add(`${p}hide`)
+    document.getElementById(`${p}divsd`).classList.add(`${p}hide`)
+    document.getElementById(`${p}divsl`).classList.add(`${p}hide`)
+    return
+  }
+  const userInfo = await storage.get(".user")
+  // console.log(`[gis.refreshInOut] userInfo type:${typeof(userInfo)}`)
+  if (userInfo) {
+    document.getElementById(`${p}divli`).classList.add(`${p}hide`)
+    document.getElementById(`${p}divlo`).classList.remove(`${p}hide`)
+    document.getElementById(`${p}divsd`).classList.remove(`${p}hide`)
+    document.getElementById(`${p}divsl`).classList.remove(`${p}hide`)
+  } else {
+    document.getElementById(`${p}divli`).classList.remove(`${p}hide`)
+    document.getElementById(`${p}divlo`).classList.add(`${p}hide`)
+    document.getElementById(`${p}divsd`).classList.add(`${p}hide`)
+    document.getElementById(`${p}divsl`).classList.add(`${p}hide`)
+  }
+}
+
+// ログアウト処理
+// 1. Googleサーバー側のアクセストークンを無効化
+// 2. ローカルのユーザー情報とトークンを削除
+// 3. アプリのエントリーポイントを再実行（ゲストモードへ）
+gis.logout=async()=>{
+  gis.isProcessing = true;
+  console.log(`[gis.logout] start`);
+  
+  try {
+    // 1. Googleトークンの無効化 (Revoke)
+    if (gis.accessToken) {
+      console.log(`[gis.logout] トークンを無効化します`);
+      // google.accounts.oauth2.revoke は非同期ですが、完了を待たずに次に進んでも実用上の問題は少ないです
+      google.accounts.oauth2.revoke(gis.accessToken, (done) => {
+        console.log(`[gis.logout] トークン無効化完了:`, done.error ? `Error: ${done.error}` : "Success");
+      });
+    }
+
+    // 2. 自動ログイン（One Tapなど）を一時的に無効化
+    // これをしないと、ログアウトした直後にまた自動ログインが走るループに陥ることがあります
+    google.accounts.id.disableAutoSelect();
+
+    // 3. アプリ内の状態をクリア
+    gis.accessToken = null;
+    if (typeof storage !== 'undefined') {
+      await storage.delete(".user");
+    }
+    
+    console.log(`[gis.logout] ローカルデータの削除完了。アプリを再起動します。`);
+
+    // 4. アプリのエントリーポイントを呼び出して「未ログイン状態」にする
+    // finish(null) を呼ぶことで、gis.accessTokenが空の状態で appEntry が実行されます
+    await gis.finish(null);
+
+  } catch (e) {
+    console.log(`[gis.logout] error:${e}`);
+    gis.isProcessing = false;
+  }
+  console.log(`[gis.logout] end`);
+};
+
+// ログイン成功/失敗後の事後処理、アプリエントリーポイント起動
+gis.finish=async(token)=>{
+  console.log(`[gis.finish] start token:${(token===null?null:truncateText(token,7))}`);
+  // console.log(`[gis.finish] start token:${token}`);
+  // console.log(`[gis.finish] gis.checkFocus:${gis.checkFocus}`);
+  if (gis.checkFocus) {
+    clearInterval(gis.checkFocus);
+    gis.checkFocus = null;
+  }
+  gis.isInRequestAccessToken = false;
+  gis.accessToken = token
+  if (gis.accessToken) {
+    console.log(`[gis.finish] ログイン完了！ユーザ情報の取得を開始します。`);
+    const userinfo = await gis.fetchUserInfo();
+    if (userinfo) {
+      await storage.set(".user", userinfo);
+      console.log(`[gis.finish] ユーザ情報の取得に成功しました。アプリを起動します。`);
+    } else {
+      await storage.delete(".user");
+      console.log(`[gis.finish] ユーザ情報の取得に失敗しました。ゲストモードでアプリを起動します。`);
+    }
+  } else {
+    console.log(`[gis.finish] アクセストークンの取得に失敗、もしくは自動ログイン不要と判断しました。ゲストモードでアプリを起動します。`);
+  }
+  // console.log(`[gis.finish] gis.checkFocus:${gis.checkFocus}`);
+  // console.log(`[gis.finish] gis keys:${JSON.stringify(Object.keys(gis), null, "  ")}`);
+  console.log(`[gis.finish] end`);
+  await gis.refreshInOut()
+  await gis.appEntry();
+  gis.isProcessing = false;
+}
+
+// ログイン画面起動
+gis.login=(prompt='')=>{
+  gis.isProcessing = true;
+  console.log(`[gis.login] start prompt:${prompt}`);
+  if (!navigator.onLine) {
+    console.log(`[gis.login] ネットワークに接続されていません。接続後にアプリを再起動してください。`);
+    return;
+  }
+  // このタイミングで極小の画面を開いてポップアップブロックをテストする方式だとiPhoneSafariが止まるためテスト方式を不採用としている
+  // console.log(`[gis.login] アクセストークンをリクエストします。prompt:${prompt}`);
+  console.log(`[gis.login] ログイン画面を起動。アクセストークンをリクエストします。`);
+  try {
+    gis.isInRequestAccessToken = true;
+    gis.tokenClient.requestAccessToken({prompt}); // ログイン画面起動。ログイン完了したら gis.init内の tokenClientのcallbackから finish 関数が呼ばれて gis.accessToken が設定され、init処理の後半が進む。
+  } catch(e) {
+    gis.isInRequestAccessToken = false;
+    console.log(`[gis.login] アクセストークンのリクエストに失敗しました。起動アプリがGISを利用する前提で実装しているか、Console.settingsが正しく設定されているか、などを確認してください。`);
+    return
+  }
+  gis.checkFocus = setInterval(() => { // ログイン画面を閉じるなどしてアプリ画面に戻ってくる（あえてログインしなかった場合を配慮）
+    if (gis.isInRequestAccessToken && document.hasFocus()) {
+      console.log(`[gis.login] ログイン画面を閉じるなどしてアプリ画面に戻ってきたためログインをキャンセルしたと判断`);
+      gis.finish(null);
+    }
+  }, 1000);
+  // console.log(`[gis.login] gis.checkFocus:${gis.checkFocus}`);
+  console.log(`[gis.login] end`);
+}
+
+// デコード（複合化）
+const obfuscator = {};
+obfuscator.key = "se" + "cre" + "t-k" + "ey-q" + "shhej" + "ycka";
+obfuscator.decode=(encoded)=>{ // デコード（複合化）
+  if (!encoded) return "";
+  const decodedBase64 = typeof atob !== 'undefined' 
+    ? atob(encoded) 
+    : Buffer.from(encoded, 'base64').toString('binary');
+  const chars = decodedBase64.split('');
+  return chars.map((char, i) => {
+    const charCode = char.charCodeAt(0);
+    const keyCode = obfuscator.key.charCodeAt(i % obfuscator.key.length);
+    return String.fromCharCode(charCode ^ keyCode);
+  }).join('');
+}
+
+// ログイン初期処理
+// gis.initで想定している引数 補填は呼び出し元で実施している想定
+// - appName: "testApp1", // GoogleDrive保存時に利用するアプリ名
+// - appEntry: initApp, // ログイン成功時に呼び出すコールバック関数(＝アプリのエントリーポイントにあたる関数)
+// - isUseLoginDisp: true, // 自作したログイン画面をアプリ起動時に利用するか否か
+// - isEncrypt: false, // GCPで取得したクライアントIDを暗号化しているか否か
+// - clientId: "...apps.googleusercontent.com", // GCPで取得したクライアントID
+// - scope: "https://www.googleapis.com/auth/drive.file profile". //スコープ内容
+gis.init=async(args={})=>{
+  gis.isProcessing = true;
+  console.log(`[gis.init] Note: ポップアップブロックが有効になっているとGoogleログインができないため、ログインできない場合はブラウザ設定を確認してください。もしポップアップが有効になっているなら、無効化した後にアプリを再度起動してください。`)
+  // console.log(`[gis.init] start args:${JSON.stringify(args)}`)
+  console.log(`[gis.init] start`)
+  gis.appName = args.appName;
+  gis.appEntry = args.appEntry;
+  gis.isUseLoginDisp = args.isUseLoginDisp;
+  gis.isEncrypt = args.isEncrypt;
+  gis.clientId = args.clientId;
+  gis.scope = args.scope;
+  try {
+    if (!navigator.onLine) {
+      console.log(`[gis.init] ネットワークに接続されていません。直前までログインしていたアカウント情報を元にアプリを起動します。`);
+      await gis.appEntry();
+      gis.isProcessing = false;
+      return;
+    }
+    await new Promise((resolve, reject) => { // SDK読み込み
+      const script = document.createElement('script');
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.async = true;
+      script.defer = true;
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error('[gis.init] SDK読み込み失敗'));
+      document.head.appendChild(script);
+    });
+    google.accounts.id.initialize({ // Identity初期化
+      client_id: (gis.isEncrypt)?obfuscator.decode(gis.clientId):gis.clientId,
+      auto_select: true,
+      use_fedcm_for_prompt: false,
+      callback: (idResp) => {
+        console.log(`[gis.init] Identity確定、トークン取得へ`);
+        gis.login()
+      }
+    });
+    gis.tokenClient = google.accounts.oauth2.initTokenClient({ // gis.TokenClient初期化
+      client_id: (gis.isEncrypt)?obfuscator.decode(gis.clientId):gis.clientId,
+      scope: gis.scope,
+      callback: (tokenResp) => {
+        if (tokenResp.error) {
+          console.log(`[gis.init] アクセストークン取得失敗: ${tokenResp.error}`);
+          gis.finish(null);
+        } else {
+          console.log(`[gis.init] アクセストークン取得成功`);
+          gis.finish(tokenResp.access_token);
+        }
+      },
+    });
+    if (gis.isUseLoginDisp) {
+      console.log(`[gis.init] 自作ログイン画面を常に使うため、起動時の自動ログインは行わない。(ユーザ操作でログイン実施)`);
+      gis.finish(null)
+    } else {
+      console.log(`[gis.init] 自作ログイン画面を使わないため、自動ログインを試行。`);
+      gis.login();
+    }
+  } catch (error) {
+    console.log('[gis.init] error:', error);
+    gis.isProcessing = false;
+  }
+  console.log(`[gis.init] end`)
+};
+
+
+
+/**
+ * idb
+ */
 
 const idbdict={}
 const idbfunc=(args={})=>{
@@ -138,8 +556,10 @@ const idbfunc=(args={})=>{
             let req
             switch(f){
               case "set":
-                req = ev.target.result.transaction(objname, "readwrite").objectStore(objname).put(v, k)
-                //console.info(`[set]k:${k},v:${v}`)
+                // console.info(`[set]k:${k},v:${(typeof(v)==="object")?JSON.stringify(v):v}`)
+                const vTxt = JSON.stringify(v) // 関数をオブジェクトに含んでいるとエラーになってしまうため、文字列化→再度オブジェクト化して除去
+                const vObj = JSON.parse(vTxt)
+                req = ev.target.result.transaction(objname, "readwrite").objectStore(objname).put(vObj, k)
                 break
               case "get":
                 req = ev.target.result.transaction(objname, "readonly").objectStore(objname).get(k)
@@ -214,6 +634,10 @@ const IndexedDB=Object.assign(idbfunc, {...idbdict})
 
 
 
+/**
+ * storage
+ */
+
 const storageName = "ConsoleIDB"
 let storages, storage_app, storage_info, storage_logsw, storage_logwin
 
@@ -246,8 +670,24 @@ storageSetFuncs.push((k, v)=>{
 })
 */
 
-const isStoragePrefix=(k)=>(typeof(k)=="string")?k.substring(0, 1)=="_":false
-const getStoragePrefixDel=(k)=>k.substring(1)
+const isStoragePrefixAppCommon=(k)=>(typeof(k)=="string")?k.substring(0, 1)=="_":false
+const isStoragePrefixInfo=(k)=>(typeof(k)=="string")?k.substring(0, 1)==".":false
+const getStoragePrefixDel=(k)=>(isStoragePrefixAppCommon(k) || isStoragePrefixInfo(k)) ? k.substring(1) : k
+
+const getAppValueLv1=async(k)=>{
+  let appk1
+  if (isStoragePrefixAppCommon(k)) {
+    appk1 = "common"
+  } else {
+    const user = await storage_info.get("user")
+    if (user) {
+      appk1 = user.id
+    } else {
+      appk1 = "guest"
+    }
+  }
+  return appk1
+}
 
 let setque=[], setrunning=false
 const storagedict={}
@@ -265,8 +705,8 @@ storagedict.set=async(k, v)=>{
   while (setque.length>0) {
     const args= setque.shift()
     k=args[0], v=args[1]
-    if (isStoragePrefix(k)) {
-      if (k=="_log") {
+    if (isStoragePrefixInfo(k)) {
+      if (k==".log") {
         await new Promise(resolve=>setTimeout(resolve,1))
         const settime = getDateTime()
         if (typeof(v)==="string" && (v.substring(0,13)=="&ensp;<&ensp;" || v.substring(0,13)=="&ensp;>&ensp;")) {
@@ -287,18 +727,24 @@ storagedict.set=async(k, v)=>{
         await storage_info.set(getStoragePrefixDel(k), v)
       }
     } else {
-      await storage_app.set(k, v)
+      const appk1 = await getAppValueLv1(k)
+      let appv1 = await storage_app.get(appk1)
+      appv1 = (appv1)?appv1:{}
+      appv1["datetime"] = getDateTime()
+      if (!appv1["data"]) appv1["data"]={}
+      appv1["data"][getStoragePrefixDel(k)]=v // objectのままsetするので文字列化はしない
+      await storage_app.set(appk1, appv1)
     }
   }
-  await storage_info.set("localtime", getDateTime())
+  await storage_info.set("datetimeIDB", getDateTime())
   storageSetFuncs.forEach(f=>f(p, v))
   setrunning=false
   return true
 }
 storagedict.get=async(k)=>{
   let v
-  if (isStoragePrefix(k)) {
-    if (k=="_log") {
+  if (isStoragePrefixInfo(k)) {
+    if (k==".log") {
       if (iswin) {
         v = await storage_logwin()
       } else {
@@ -308,18 +754,24 @@ storagedict.get=async(k)=>{
       v = await storage_info.get(getStoragePrefixDel(k))
     }
   } else {
-    v = await storage_app.get(k)
+    const appk1 = await getAppValueLv1(k)
+    const appv1 = await storage_app.get(appk1)
+    if (!appv1) return undefined
+    if (!appv1["data"]) return undefined
+    const txt = appv1["data"][getStoragePrefixDel(k)]
+    try {
+      const obj = JSON.parse(txt)
+      v = obj
+    } catch(e) {
+      v = txt
+    }
   }
   return v
 }
-storagedict.keys=async()=>{
-  let obj = await storagefunc()
-  return Object.keys(obj)
-}
 storagedict.delete=async(k)=>{
   let r
-  if (isStoragePrefix(k)) {
-    if (k=="_log") {
+  if (isStoragePrefixInfo(k)) {
+    if (k==".log") {
       if (iswin) {
         r = await storage_logwin.delete(k)
       } else if (issw) {
@@ -331,7 +783,12 @@ storagedict.delete=async(k)=>{
       r = await storage_info.delete(getStoragePrefixDel(k))
     }
   } else {
-    r = await storage_app.delete(k)
+    const appk1 = await getAppValueLv1(k)
+    const appv1 = await storage_app.get(appk1)
+    if (!appv1["data"]) return undefined
+    delete appv1["data"][getStoragePrefixDel(k)]
+    appv1["datetime"] = getDateTime()
+    r = await storage_app.set(appk1, appv1)
   }
   return r
 }
@@ -343,7 +800,10 @@ storagedict.clear=async()=>{
   r = await storage_app.clear()
   return r
 }
-
+storagedict.keys=async()=>{
+  let obj = await storagefunc()
+  return Object.keys(obj)
+}
 storagedict.getAllKeysValues=async()=>{
   const obj_app = await storage_app()
   const obj_info = await storage_info()
@@ -364,9 +824,22 @@ const storagefunc=async(args)=>{
     await storage_app(args)
     return args
   } else {
-    let obj = await storage_app()
+    let obj={}
+    const appobj = await storage_app()
+    const user = await storage_info.get("user")
+    const userobj=(user)?appobj[user.id]:appobj.guest
+    if (typeof(userobj)==="object" && typeof(userobj["data"])==="object") {
+      for (let key of Object.keys(userobj["data"])) {
+        obj[key] = userobj["data"][key]
+      }
+    }
+    if (typeof(appobj.common)==="object" && typeof(appobj.common["data"])==="object") {
+      for (let key of Object.keys(appobj.common["data"])) {
+        obj["_"+key] = appobj.common["data"][key]
+      }
+    }
     for (let key of (await storage_info.keys())) {
-      obj["_"+key] = await storage_info.get(key)
+      obj["."+key] = await storage_info.get(key)
     }
     return obj
   }
@@ -377,7 +850,11 @@ const initstorage=async()=>{
   await storage.clear()
 }
 
-const p = "Console_js_"
+
+
+/**
+ * console.log hooks
+ */
 
 const addconsole=()=>{
   let consoleLogBackup=console.log
@@ -385,7 +862,7 @@ const addconsole=()=>{
     value: async(...args)=>{
       for (const arg of args) {
         consoleLogBackup(getDateTime() + "|" + arg)
-        await storage.set("_log", arg)
+        await storage.set(".log", arg)
       }
       if (isshow) viewlog()
     },
@@ -393,8 +870,16 @@ const addconsole=()=>{
 }
 addconsole()
 
+
+
+/**
+ * contents
+ */
+
+const p = "Console_js_"
+
 const addcontents=async()=>{
-const _settings = await storage.get("_settings")
+const _settings = await storage.get(".settings")
 document.body.insertAdjacentHTML("beforeend", String.raw`
 <span id="${p}console_container">
 <style>
@@ -461,6 +946,10 @@ document.body.insertAdjacentHTML("beforeend", String.raw`
 .${p}str {
   margin:0 5px 0 5px;
   line-height:1.2rem;
+}
+
+.${p}str.${p}hide {
+  display: none;
 }
 
 .${p}ver {
@@ -635,10 +1124,10 @@ document.body.insertAdjacentHTML("beforeend", String.raw`
       <div class="${p}str">&ensp;<span id="${p}cmdds" class="${p}cmd">@ds</span> delete storage</div>
       <div class="${p}str">&ensp;<span id="${p}cmdsl" class="${p}cmd">@cl</span> change log view mode (currently <span id="${p}cmdclnow">${await getViewMode()}</span>)</div>
       <div class="${p}str">&ensp;<span id="${p}cmddl" class="${p}cmd">@dl</span> delete log</div>
-      <div class="${p}str">&ensp;<span id="${p}cmdcu" class="${p}cmd">@cn</span> change name</div>
-      <div class="${p}str">&ensp;<span id="${p}cmdcu" class="${p}cmd">@cu</span> change url</div>
-      <div class="${p}str">&ensp;<span id="${p}cmdse" class="${p}cmd">@su</span> send to url</div>
-      <div class="${p}str">&ensp;<span id="${p}cmdre" class="${p}cmd">@ru</span> receive from url</div>
+      <div id="${p}divli" class="${p}str">&ensp;<span id="${p}cmdli" class="${p}cmd">@li</span> google login</div>
+      <div id="${p}divlo" class="${p}str ${p}hide">&ensp;<span id="${p}cmdlo" class="${p}cmd">@lo</span> google logout</div>
+      <div id="${p}divsd" class="${p}str ${p}hide">&ensp;<span id="${p}cmdsd" class="${p}cmd">@sd</span> sync data with google drive</div>
+      <div id="${p}divsl" class="${p}str ${p}hide">&ensp;<span id="${p}cmdsl" class="${p}cmd">@sl</span> send logs to google drive</div>
       <div class="${p}str">&ensp;<span id="${p}cmdra" class="${p}cmd">@ra</span> reload app</div>
       <div class="${p}str ${p}ver">${VERSION}&ensp;</div>
     </div>
@@ -652,6 +1141,10 @@ document.body.insertAdjacentHTML("beforeend", String.raw`
 }
 
 
+
+/**
+ * events
+ */
 
 const hideToggle=()=>{
   //console.log("hideToggle")
@@ -754,97 +1247,6 @@ const deletelog=async()=>{
   return true
 }
 
-const doPost = async(req, url) => { //jsonオブジェクトを渡して、jsonオブジェクトで返る
-  if (typeof(url)==="undefined") url = await storage.get("_posturl")
-  console.log( "&ensp;<&ensp;" + "doPost start" )
-  try {
-    if (!navigator.onLine) throw "offline now"
-    try {new URL(url)} catch {throw "url error"}
-    const js = await fetch(url, {
-      "method":"post",
-      "Content-Type":"application/json",
-      "body":JSON.stringify(req),
-    })
-    const jo = await js.json()
-    if (jo.status == "OK") {
-      console.log( "&ensp;<&ensp;" + "doPost end" )
-      return jo.data
-    } else {
-      console.log( "&ensp;<&ensp;" + "doPost error: "  + JSON.stringify(jo) )
-      throw "response ng"
-    }
-  } catch(e) {
-    console.log( "&ensp;<&ensp;" + "doPost catch(e): "  + e )
-    throw e
-  }
-}
-
-const postname=async(args)=>{
-  if (typeof(args)!=="undefined" && args != null) await storage.set("_postname", args)
-  return await storage.get("_postname")
-}
-
-const changename=async()=>{
-  console.log( "&ensp;<&ensp;" + "change name..." )
-  let pn = await storage.get("_postname")
-  const res = prompt("post name?", (postname==undefined)?"":pn)
-  pn = await postname(res)
-  console.log( "&ensp;<&ensp;" + "name: " + pn )
-}
-
-const posturl=async(args)=>{
-  if (typeof(args)!=="undefined" && args != null) await storage.set("_posturl", args)
-  return await storage.get("_posturl")
-}
-
-const changeurl=async()=>{
-  console.log( "&ensp;<&ensp;" + "change url..." )
-  let pu = await storage.get("_posturl")
-  const res = prompt("post url?", (posturl==undefined)?"":pu)
-  pu = await posturl(res)
-  console.log( "&ensp;<&ensp;" + "url: " + pu )
-}
-
-const postsend=async()=>{
-  console.log( "&ensp;<&ensp;" + "send..." )
-  try {
-    let obj = await storage.getAllKeysValues()
-    await storage.set("_sendtime", getDateTime())
-    const jo = await doPost({
-      "action":"set",
-      "data":obj,
-    })
-    console.log( "&ensp;<&ensp;" + "send success, postname:" + jo.info.postname )
-    if (jo.info.postname) await storage.set("_postname", jo.info.postname)
-    return jo.info.postname
-  } catch(e) {
-    console.log( "&ensp;<&ensp;" + "send catch(e): " + e )
-    alert(e)
-  }
-}
-
-const postrecv=async()=>{
-  console.log( "&ensp;<&ensp;" + "receive..." )
-  try {
-    const postname = await storage.get("_postname")
-    const jo = await doPost({
-      "action":"get",
-      "data":{
-        "info":{
-          "postname":postname,
-        },
-      },
-    })
-    console.log( "&ensp;<&ensp;" + "receive success, postname:" + jo.info.postname )
-    await storage.set("_recvtime", getDateTime())
-    if (jo.app) await storage_app(jo.app)
-    return jo.app
-  } catch(e) {
-    console.log( "&ensp;<&ensp;" + "receive catch(e): " + e )
-    alert(e)
-  }
-}
-
 
 
 let isshow=false, arr_viewer=[]
@@ -856,7 +1258,7 @@ const viewlog=async()=>{
   const jo_win = await storage_logwin()
   for (let key in jo_win) arr_win.push(`<div class="${p}line"><div class="${p}str">${[key]}|${jo_win[key]}</div></div>`)
   let arr_all=[]
-  const viewmode = await storage.get("_viewmode")
+  const viewmode = await storage.get(".viewmode")
   if (typeof(viewmode)==="undefined" || viewmode=="all") {
     arr_all=arr_sw.concat(arr_win)
   } else if (viewmode=="sw") {
@@ -879,7 +1281,7 @@ const viewlog=async()=>{
 }
 
 const getViewMode=async()=>{
-  const viewmode = await storage.get("_viewmode")
+  const viewmode = await storage.get(".viewmode")
   if (typeof(viewmode)==="undefined") {
     return "all"
   } else {
@@ -887,18 +1289,17 @@ const getViewMode=async()=>{
   }
 }
 
-
-
 const addevents=async()=>{
   //storageSetFuncs.push(()=>{if(isshow)viewlog()})
   document.getElementById(`${p}toggle`).addEventListener("click",async()=>{
     console.log("toggle click")
+    await gis.refreshInOut()
     isshow=(isshow)?false:true
     if (isshow) viewlog()
     const rapper = document.getElementById(`${p}console`)
     rapper.classList.toggle(`${p}hide`)
     //if (isshow) document.getElementById(`${p}cmd`).focus()
-    const _settings = await storage.get("_settings")
+    const _settings = await storage.get(".settings")
     if (!_settings.show) hideToggle()
   })
 
@@ -920,7 +1321,7 @@ const addevents=async()=>{
       let input=document.getElementById(`${p}cmd`).value
       console.log( "&ensp;>&ensp;" + input )
       if (input!="") {
-        if (input!="@") await storage.set("_precmd", input)
+        if (input!="@") await storage.set(".precmd", input)
         if (typeof(input)=="string" && input.substring(0,1)=="@") {
           switch (input) {
             case "@":
@@ -947,7 +1348,7 @@ const addevents=async()=>{
               console.log( "&ensp;<&ensp;" + "delete storage end" )
               break
             case "@cl":
-              let viewmode = await storage.get("_viewmode")
+              let viewmode = await storage.get(".viewmode")
               if (typeof(viewmode)==="undefined" || viewmode=="all") {
                 viewmode = "other than sw"
               } else if (viewmode=="other than sw") {
@@ -955,7 +1356,7 @@ const addevents=async()=>{
               } else if (viewmode=="sw") {
                 viewmode = "all"
               }
-              await storage.set("_viewmode", viewmode)
+              await storage.set(".viewmode", viewmode)
               document.getElementById(`${p}cmdclnow`).innerHTML = viewmode
               arr_viewer=[]
               console.log( "&ensp;<&ensp;" + `changed log view mode: ${viewmode}` )
@@ -963,17 +1364,17 @@ const addevents=async()=>{
             case "@dl":
               await deletelog()
               break
-            case "@cn":
-              changename()
+            case "@li":
+              gis.login()
               break
-            case "@cu":
-              changeurl()
+            case "@lo":
+              await gis.logout()
               break
-            case "@su":
-              postsend()
+            case "@sd":
+              await gis.syncAppData()
               break
-            case "@ru":
-              postrecv()
+            case "@sl":
+              await gis.sendLog()
               break
             case "@ra":
               console.log( "&ensp;<&ensp;" + "reload app..." )
@@ -1003,13 +1404,19 @@ const addevents=async()=>{
       if (input!="@") {
         document.getElementById(`${p}cmd`).value=""
       } else {
-        const precmd = await storage.get("_precmd")
+        const precmd = await storage.get(".precmd")
         document.getElementById(`${p}cmd`).value = (typeof(precmd)==="undefined")?"":precmd
       }
     }
   })
 
 }
+
+
+
+/**
+ * settings
+ */
 
 //globalThis.Console=Object.assign((args={})=>{
 const settings=async(args={})=>{
@@ -1020,7 +1427,7 @@ const settings=async(args={})=>{
     for (let k in globalThis[storageName]["info"]) storage_info.set(k, globalThis[storageName]["info"][k])
     for (let k in globalThis[storageName]["logsw"]) storage_logsw.set(k, globalThis[storageName]["logsw"][k])
     for (let k in globalThis[storageName]["logwin"]) storage_logwin.set(k, globalThis[storageName]["logwin"][k])
-    await delete globalThis[storageName]
+    delete globalThis[storageName]
   }
   if (iswin) {
     args.show=(typeof(args.show)!=="undefined")?args.show:true
@@ -1028,27 +1435,45 @@ const settings=async(args={})=>{
     args.posx=(typeof(args.posx)!=="undefined")?args.posx:0
     args.posy=(typeof(args.posy)!=="undefined")?args.posy:0
     if (document.getElementById(`${p}console_container`)!==null) document.getElementById(`${p}console_container`).remove()
-    await storage.set("_settings", args)
+    await storage.set(".settings", args)
     await addcontents()
     await addevents()
     if (!args.show) hideToggle()
+    if (args.gis) {
+      console.log(`[settings] gis start`)
+      if (!args.gis.appName || !args.gis.appEntry || !args.gis.clientId) {
+        console.log(`[settings] gis setting error You must enter appName and appEntry and clientId. appName:${args.gis.appName}, appEntry:${args.gis.appEntry}, cliendId:${args.gis.clientId}`)
+      } else {
+        args.gis.isEncrypt=(typeof(args.gis.isEncrypt)!=="undefined")?args.gis.isEncrypt:false
+        args.gis.isUseLoginDisp=(typeof(args.gis.isUseLoginDisp)!=="undefined")?args.gis.isUseLoginDisp:false
+        args.gis.scope=(typeof(args.gis.scope)!=="undefined")?args.gis.scope:"https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.profile"
+        await storage.set(".settings", args)
+        await gis.init(args.gis);
+      }
+      console.log(`[settings] gis end`)
+    }
   }
   console.log(`Console.settings:${JSON.stringify(args)}, isWindow:${iswin}, isServiceWorker:${issw}, canBroadcastChannel:${canbcc}`)
-
 }
 await settings(args)
 
 
 
+/**
+ * public functions, properties
+ */
+
 Object.assign(globalThis.Console,{
-  "settings":settings,
-  "storage":storage,
-  "setfuncs":storageSetFuncs,
-  "deletelog":deletelog,
-  "postname":postname,
-  "posturl":posturl,
-  "postsend":postsend,
-  "postrecv":postrecv,
+  "datetime": getDateTime,
+  "settings": settings,
+  "storage": storage,
+  "setfuncs": storageSetFuncs,
+  "deletelog": deletelog,
+  "authfetch": gis.authfetch,
+  "login": gis.login,
+  "logout": gis.logout,
+  "sync": gis.syncAppData,
+  "isproc": ()=>gis.isProcessing,
 })
 return storage
 }

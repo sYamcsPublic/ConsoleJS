@@ -1,12 +1,11 @@
 {
-  "name": "Console.js - sample",
-  "scope": "./",
+  "name": "consolejs-sample",
   "start_url": "./",
   "display": "standalone",
   "icons": [
     {
       "src": "./icon.png",
-      "sizes": "512x512",
+      "sizes": "100x100",
       "type": "image/png"
     }
   ]

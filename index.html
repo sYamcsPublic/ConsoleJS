@@ -1,49 +1,158 @@
 <!DOCTYPE html>
 <html lang="jp">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1, shrink-to-fit=no">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black">
-<link rel="apple-touch-icon" href="./icon.png" sizes="180x180">
-<link rel="icon" href="./icon.png" type="image/png">
-<link rel="manifest" href="./manifest.json">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Black&display=swap">
-<title>Console.js - sample</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1, shrink-to-fit=no">
+  <link rel="manifest" href="./manifest.json">
+  <link rel="icon" href="./icon.png">
+  <title>consolejs-sample</title>
 </head>
 <body width="0px" height="0px" style="margin:0"></body>
-<script defer src="./Console.js"></script>
-
-<script defer src="./win.js"></script>
-<script>navigator.serviceWorker.register("./sw.js")</script>
+<script defer src="https://syamcspublic.github.io/ConsoleJS/Console.js"></script>
 <script>
-window.addEventListener("DOMContentLoaded",async()=>{
-  console.log("[idx]index.html start")
-  await Console.promise
-  await Console.settings({storage:true}) //Commented because it is implemented in win.js
-  const app = Console.storage
-  await app.set("veridx", "1.0.0")
+const VERSION="2.1.0";
 
-  //any script synced with Console
+// readme sample
+(async()=>{
+  window.addEventListener("DOMContentLoaded",async()=>{
+    console.log(`[index.html domLoaded] start / version:${VERSION}`)
 
-  console.log("[idx]index.html end")
-})
-</script>
+    // 準備(アプリ起動時など)
+    await Console.promise; const kv = Console.storage;
+    await Console.settings({storage:false}) // storage:trueにするとIndexedDBを対象とします
 
-<!--
-<script>
-window.addEventListener("DOMContentLoaded",async()=>{
-  let app;Console.promise.then(async()=>{
-    app = Console.storage
-    //any script synced with Console
-    console.log("[idx]2")
+    // データの保存（自動的に保存日時が内部に記録されます）
+    await kv.set("key1", "text");
+    await kv.set("key2", 100);
+    await kv.set("key3", { name: "text", value: 100 });
+
+    // データの取得
+    const value1 = await kv.get("key1");
+    const value2 = await kv.get("key2");
+    const value3 = await kv.get("key3");
+
+    // キーの接頭辞による分類
+    const settings = await kv.get(".setting"); // "."開始：システム情報 (info領域)
+    await kv.set("_commonData", "value1"); const commonData = await kv.get("_commonData"); // "_"開始：ユーザーを問わない共通データ (common領域)
+    await kv.set("userData", "value2"); const userData = await kv.get("userData"); // 接頭辞なし：ログインしている場合はユーザー別の領域、ログインしていない場合はguest領域
+
+    // キー一覧の取得
+    const keys = await kv.keys(); // 
+    console.log(`keys:${JSON.stringify(keys)}`)
+
+    // keys&valuesの取得
+    const KeysAndValues = await kv();
+    console.log(`KeysAndValues:${JSON.stringify(KeysAndValues)}`)
+
+    // ログインユーザ情報の取得
+    const userinfo = await kv.get(".user");
+    console.log(`userinfo:${(userinfo)?JSON.stringify(userinfo):userinfo}`)
+
+    console.log(`[index.html domLoaded] end`)
   })
-  //any script asynced with Console
-  console.log("[idx]1")
-})
-</script>
--->
+})();
 
+/*
+// test
+(async()=>{
+  let kv=null;
+
+  // get text
+  const getContentDrive=async(id)=>{
+    try {
+      const url = `https://www.googleapis.com/drive/v3/files/${id}/export?mimeType=text/plain`;
+      const resp = await Console.authfetch(url);
+      if (!resp.ok) return null;
+      return await resp.text();
+    } catch(e) {
+      throw new Error(`[test.html getContentDrive] error: ${e}`);
+    }
+  }
+
+  // test2
+  const test2=async()=>{
+    console.log(`[test.html test2] start`)
+
+    console.log(`[test.html test2] datetime:${Console.datetime()}`)
+
+    const docid = "xxxxxxxxxxxxxxxxxxxxxx";
+    try {
+      const text = await getContentDrive(docid);
+      console.log(`[test.html test2] text:${text}`)
+    } catch(e) {
+      console.log(`[test.html test2] getContentDrive error:${e}`)
+    }
+
+    console.log(`[test.html test2] end`)
+  }
+
+  // test1
+  const test1=async()=>{
+    console.log(`[test.html test1] start`)
+
+    await kv.set("userTxt1", "userTxtValue1")
+    const userTxt1 = await kv.get("userTxt1")
+    console.log(`[test.html test1] userTxt1:${userTxt1}`)
+
+    await kv.set("userTxt2", "userTxtValue2")
+    const userTxt2 = await kv.get("userTxt2")
+    console.log(`[test.html test1] userTxt2:${userTxt2}`)
+
+    await kv.set("userObj", {
+      "key1":"value1",
+      "key2":{
+        "key21":"value21"
+      }
+    })
+    const userObj = await kv.get("userObj")
+    console.log(`[test.html test1] userObj type:${typeof(userObj)}`)
+    console.log(`[test.html test1] userObj:${JSON.stringify(userObj)}`)
+
+    const keysBefore = await kv.keys()
+    console.log(`[test.html test1] keysBefore:${JSON.stringify(keysBefore)}`)
+
+    const keysAndValuesBefore = await kv()
+    console.log(`[test.html test1] keysAndValuesBefore:${JSON.stringify(keysAndValuesBefore)}`)
+
+    await kv.delete("userTxt1")
+    console.log(`[test.html test1] userTxt1 delete`)
+
+    const keysAfter = await kv.keys()
+    console.log(`[test.html test1] keysAfter:${JSON.stringify(keysAfter)}`)
+
+    const keysAndValuesAfter = await kv()
+    console.log(`[test.html test1] keysAndValuesAfter:${JSON.stringify(keysAndValuesAfter)}`)
+
+    const userinfo = await kv.get(".user");
+    console.log(`[test.html test1] userinfo:${(userinfo)?JSON.stringify(userinfo):userinfo}`)
+
+    console.log(`[test.html test1] isproc:${Console.isproc()}`)
+    console.log(`[test.html test1] end`)
+  }
+
+  // entry point
+  const init=async()=>{
+    console.log(`[test.html init] start`)
+    await kv.set("_version", VERSION)
+    const version = await kv.get("_version")
+    await test1()
+    await test2()
+    console.log(`[test.html init] end`)
+  }
+
+  // ready
+  window.addEventListener("DOMContentLoaded",async()=>{
+    console.log(`[test.html domLoaded] start / version:${VERSION}`)
+    await Console.promise; kv = Console.storage;
+    await Console.settings({storage:false, gis:{
+      appName: 'consolejs-test',
+      appEntry: init,
+      clientId: 'YOUR_CLIENT_ID.apps.googleusercontent.com',
+    }})
+    console.log(`[test.html domLoaded] end`)
+  })
+})();
+*/
+
+</script>
 </html>

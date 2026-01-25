@@ -1,211 +1,134 @@
-# Console.js
-"Console.js" is a library designed to assist in debugging web applications.  
-It embeds a console screen in the application and hooks "console.log" to display logs.  
-In addition, some of the functions can be used on the application side for uses other than debugging.  
+# Console.js (v2.1.0)
 
-# Demo
+`Console.js` は、Webアプリケーションのデバッグを強力にサポートするライブラリです。
+アプリケーション内に仮想コンソール画面を埋め込み、`console.log` をフックしてログを表示するだけでなく、Google Drive を利用したデータ同期やログのバックアップ、IndexedDB を活用したストレージ機能を提供します。
+
+## デモ
+
 <img src="./demo.gif" width="65%"/>
 
-# Sample
-[Console.js - sample](https://syamcspublic.github.io/ConsoleJS/) ... This is the index.html of this repository.
-- Very simple counter PWA that assumes the use of "Console.js".
-- To check the behavior of "Console.js", many "console.log" are incorporated.
-- It is using service worker and indexedDB.
+## サンプル
 
-By the way, [here](https://syamcspublic.github.io/ConsoleJS/simply.html) is a sample of simply loaded in an html file.
+* [Console.js - 動作サンプル](https://syamcspublic.github.io/ConsoleJS/)
+* [HTMLファイルへのシンプルな導入例](https://syamcspublic.github.io/ConsoleJS/simple.html)
 
-# Usage
-```html
-<script defer src="https://syamcspublic.github.io/ConsoleJS/Console.js"></script>
-```
-Or
+## 主な機能
+
+1. **コンソール・フック**: `console.log` を自動的にキャッチし、専用のGUI画面に表示・保存します。
+2. **高度なストレージ管理**: IndexedDB またはメモリ上のオブジェクトを、共通のAPI（get/set）で透過的に操作できます。
+3. **Google Drive 同期**: アプリケーションデータ（JSON形式）を Google Drive と双方向同期（最新日時優先）します。
+4. **リモートログ出力**: デバッグログをテキストファイルとして Google Drive のマイドライブ直下に保存できます。
+5. **PWA/Service Worker 対応**: Service Worker 内でのログ記録にも対応しています。
+
+## 導入方法
+
+HTMLファイルで以下のように読み込みます。
+
 ```html
 <script defer src="./Console.js"></script>
+
 ```
-Simply load the "Console.js" available at github-pages as shown above in an html file.  
-Or, download "Console.js" from this repository and load it.
 
-Click or tap the "+" button displayed in the right bottom corner to display the console screen.  
-The "@xx" command listed at the bottom of the console screen is available.
+画面右下に表示される「＋」ボタンをタップするとコンソールが開きます。下部の入力欄からコマンド（`@`で始まる命令）を実行可能です。
 
-# Usage on the service worker
+## 初期設定 (Console.settings)
+
+ライブラリの挙動をカスタマイズするには、読み込み後に一度だけ `Console.settings` を呼び出します。
+
 ```javascript
-importScripts("./Console.js")
-Console.promise.then(async()=>{
-  await Console.settings({storage:true})
-  //any script synced with Console
-})
-//any script asynced with Console
+(async()=>{
+  await Console.promise;  // ライブラリの初期化完了を待機 (以下の設定や他機能を利用するのであれば必須、ボタン表示のみ希望であれば不要)
+  await Console.settings({
+    storage: true,             // trueでIndexedDBを使用、falseで一時メモリ (任意 省略時はfalse)
+    show: true,                // 右下の「＋」ボタンを表示するか (任意 省略時はtrue)
+    pos: "right-bottom",       // ボタン位置 (right-top, left-bottom 等) (任意 省略時はright-bottom)
+    posx: 65,                  // ボタン位置横補正 (px単位) (任意 省略時は0)
+    posy: 65,                  // ボタン位置縦補正 (px単位) (任意 省略時は0)
+    gis: {  // 利用は任意 (省略時はundefined)
+      appName: "MyWebApp",     // Google Drive上のファイル名に使用 (gis利用時は必須)
+      appEntry: initApp,       // ログイン完了後に実行されるエントリーポイント (gis利用時は必須)
+      isUseLoginDisp: true,    // アプリで実装したログイン画面の起動時に利用可否(任意 省略時はfalse)
+      clientId: "YOUR_CLIENT_ID.apps.googleusercontent.com", // GCPで取得したクライアントID(gis利用時は必須)
+      scope: "https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.profile" // GCPで取得したクライアントIDのスコープ(任意 省略時は左記の値)
+    }
+  });
+})();
 ```
-To use it on the service worker side,  
-it must be imported with "importScripts" as above and Console.settings.storage must be set to true (use indexedDB).
 
-# Functions
+## ストレージ機能 (Console.storage)
+
+`Console.storage` を通じて、IndexedDB（またはメモリ）へのデータの読み書きが可能です。
+
 ```javascript
-await Console.promise
-```
-The following functions will be available when "Console.promise" is resolved.
+(async()=>{
+  // 準備例 (アプリ起動時などに1度だけ実施)
+  await Console.promise; const kv = Console.storage; // ライブラリの初期化完了を待機(必須)、ストレージを変数`kv`で参照できるようにします(任意)
+  await Console.settings({storage:false}) // ライブラリの初期設定を実施します(任意 参考:storage:trueにするとIndexedDBを対象とします)
 
-## settings ... function(json), return value is none
-```javascript
-await Console.settings({storage:true})
-```
-When "Console.js" is loaded, it is processed with default values, but the settings can be changed only once using "Console.settings".
+  // データの保存 (自動的に保存日時が内部に記録されます)
+  await kv.set("key1", "text");
+  await kv.set("key2", 100);
+  await kv.set("key3", { name: "text", value: 100 });
 
-> **Warning**  
-> It may be called only once for each global object. Multiple calls may result in unintended behavior.
+  // データの取得
+  const value1 = await kv.get("key1");
+  const value2 = await kv.get("key2");
+  const value3 = await kv.get("key3");
 
-The keys and values of the arguments are as follows. If no key is specified, the default value is applied.
-| key         | value                                                          | description
-|-------------|----------------------------------------------------------------|-----------------
-| `"storage"` | `true`(use), `false`(not use)                                  | indexedDB is used or not. default is `false`.
-| `"show"`    | `true`(show), `false`(hide)                                    | show or hide the "+" button. default is `true`.
-| `"pos"`     | `"right-bottom"`, `"right-top"`, `"left-bottom"`, `"left-top"` | position of the "+" button. default is `"right-bottom"`.
-| `"posx"`    | (integer value)                                                | Change position of the "+" button(x direction). default is `0`.
-| `"posy"`    | (integer value)                                                | Change position of the "+" button(y direction). default is `0`.
+  // キーの接頭辞による分類
+  const settings = await kv.get(".setting"); // "."開始：システム情報 (info領域)
+  await kv.set("_commonData", "value1"); const commonData = await kv.get("_commonData"); // "_"開始：ユーザーを問わない共通データ (common領域)
+  await kv.set("userData", "value2"); const userData = await kv.get("userData"); // 接頭辞なし：ログインしている場合はユーザー別の領域、ログインしていない場合はguest領域
 
+  // キー一覧の取得
+  const keys = await kv.keys(); // 
+  console.log(`keys:${JSON.stringify(keys)}`)
 
-## storage ... object
-```javascript
-const app = Console.storage
-await app.set("k1", "v1")            //set
-let value1 = await app.get("k1")     //get
-let lt = await app.get("_localtime") //get info data
-let keys = await app.keys()          //get keys ... array
-let jo = await app()                 //get keys&values ... json
-await app.delete("k1")               //delete
-```
-The application can use some of the storage space used by "Console.js".  
-Keys whose first character is "_" are processed by "ConsoleIDB.info", which is the system information of "Console.js".  
-Other keys are handled by "ConsoleIDB.app" and should be used on the application side.  
+  // keys&valuesの取得
+  const KeysAndValues = await kv();
+  console.log(`KeysAndValues:${JSON.stringify(KeysAndValues)}`)
 
-The storage handled depends on the value of Console.settings.storage.  
-- If true: indexedDB.
-- If false: Objects automatically created directly under the global object.
-
-The storage configuration is as follows.
-```
-"ConsoleIDB": {
-  "app": {
-    any
-  },
-  "info": {
-    "settings": {
-      "storage": [set value],
-      "show": [set value],
-      "pos": [set value],
-      "posx": [set value],
-      "posy": [set value],
-    },
-    "precmd": [previous command],
-    "viewmode": [log view mode (all / sw / other than sw)],
-    "posturl": [the URL of the post destination],
-    "postname": [post destination file name],
-    "sendtime": [send time],
-    "recvtime": [receive time],
-    "localtime": [storage update time],
-  },
-  "logsw": {
-    [timestamp]: [log contents],
-  },
-  "logwin": {
-    [timestamp]: [log contents],
-  },
-},
+  // ユーザ情報の取得
+  const userinfo = await kv.get(".user");
+  console.log(`keys:${(userinfo)?JSON.stringify(userinfo):userinfo}`)
+}))
 ```
 
-## setfuncs ... array
-```javascript
-Console.setfuncs.push(()=>{
-  console.info("storage set")
-})
-```
-Can add functions that you want to run when `Console.storage.set(any)` is called.   
-It will also be executed when console.log is called.
+## コンソールコマンド
 
-## deletelog ... function(), return value is true
-```javascript
-await Console.deletelog()
-```
-Delete log.
+コンソール画面の入力欄から以下のコマンドを実行できます。
 
-## posturl ... function(string), return value is string(posturl)
-```javascript
-pu = await Console.posturl() //get
-pu = "https://..."
-await Console.posturl(pu)    //set
-```
-The URL of the post destination for postsend/postrecv. See [How to create a post destination](#how-to-create-a-post-destination).
+| コマンド | 内容 | 補足 |
+| --- | --- | --- |
+| `@` | 直前に実行したコマンドを呼び出し |  |
+| `@vw` | Service Worker を表示 |  |
+| `@dw` | Service Worker を削除 |  |
+| `@vc` | キャッシュの表示 |  |
+| `@dc` | キャッシュの削除 |  |
+| `@vs` | ストレージ内容の確認（JSON表示） |  |
+| `@ds` | ストレージ内容の削除 |  |
+| `@cl` | ログ表示モードの切替 (All / Service Worker / ブラウザ) |  |
+| `@dl` | ログの消去 |  |
+| `@li` | Google ログインの実行 | Console.settings.gis設定時、かつログアウト状態のときに表示 |
+| `@lo` | Google ログアウト（トークンの失効とローカルデータの削除） | Console.settings.gis設定時、かつログイン状態のときに表示 |
+| `@sd` | Google Drive とのアプリデータ同期 | Console.settings.gis設定時、かつログイン状態のときに表示 |
+| `@sl` | Google Drive へ現在のログを送信 | Console.settings.gis設定時、かつログイン状態のときに表示 |
+| `@ra` | アプリのリロード |  |
 
-## postname ... function(string), return value is string(postname)
-```javascript
-pn = await Console.postname() //get
-pn = "postname1"
-await Console.postname(pn)    //set
-```
-Post destination file name.
+## 公開API
 
-## postsend ... function(), return value is string(postname)
-```javascript
-await Console.postsend()
-```
-Sends the entire contents of "ConsoleIDB" including logs to post.  
-If postname is not set, the assumption is that it is automatically retrieved at the post destination.  
-When the send is started, "ConsoleIDB.info.sendtime" is updated.  
-When the send is complete, "ConsoleIDB.info.postname" is updated.
+JavaScript側から直接呼び出し可能な関数やプロパティなどです。
 
-## postrecv ... function(), return value is json(ConsoleIDB.app)
-```javascript
-await Console.postrecv()
-```
-Receive "ConsoleIDB.app" from the post destination.  
-When the receive is completed, "ConsoleIDB.app" and "ConsoleIDB.info.recvtime" are updated.
+* `await Console.promise`: ライブラリの初期化完了を待機します。
+* `await Console.settings({})`: ライブラリの初期設定を行います。
+* `await Console.deletelog()`: ログを削除します。
+* `Console.storage`: ストレージ操作関数群を保有するオブジェクトです。
+* `Console.login()`: Google ログイン画面を起動します。
+* `await Console.authfetch(url, options={})`: 認証情報を使ってfetchします。
+* `await Console.sync()`: Google Drive との同期を実行します。
+* `await Console.logout()`: ログアウト処理を実行します。
+* `Console.isproc()`: 通信中/処理中であれば `true` を返します。
 
-# How to create a post destination
-Brief description of how to create a post destination using GAS.
-
-1. Create a "Google Apps Script" file in GoogleDrive and open the file.
-
-   <img src="./gas01.png" width="65%"/>
-
-2. Copy and paste the "gas.js" code from this repository into the script file.
-
-3. Set the "folderid" value to the ID of the folder where the data will be saved after transmission, and save it.
-
-4. Click the "Deploy" triangle button in the right top.
-
-5. Click "New Deploy".
-
-   <img src="./gas02.png" width="65%"/>
-
-6. Select "Web App" from the gear in the left top.
-
-7. "Run as the following user" is myself and "Accessible users" is everyone. (please change the setting values as needed)
-
-8. Click the "Deploy" button on the right bottom to get the URL of the post destination.
-
-   <img src="./gas03.png" width="65%"/>
-
-The second and subsequent deployments should be performed as follows. (How to deploy without changing the URL)
-
-1. Click the "Deploy" triangle button in the right top.
-
-2. Click the "Manage Deploy".
-
-3. Click the pencil icon in the right top.
-
-4. select "New Version".
-
-5. Click the "Deploy" button in the right bottom.
-
-   <img src="./gas04.png" width="65%"/>
-
-# Note
-Most functions are async.  
-See the samples in this repository for specific use cases.
-
-# Author
-sYamcs
-
-# License
-MIT
+## ライセンス
+MIT License  
+Author: sYamcs
