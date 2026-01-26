@@ -1,6 +1,6 @@
 "use strict";
 globalThis.Console=async(args={})=>{
-const VERSION = "2.1.0"
+const VERSION = "2.1.1"
 const iswin = (typeof(window)!=="undefined")
 const issw  = (typeof(ServiceWorkerGlobalScope)!=="undefined")
 const canbcc = (typeof(globalThis.BroadcastChannel)!=="undefined")
@@ -80,66 +80,208 @@ const truncateText=(str, maxLength = 30)=>{
 const gis={}
 gis.isProcessing = false; // 処理中フラグ
 
+// 接続前確認
+gis.confirmBeforeConnect=async()=>{
+  try {
+    if (!navigator.onLine) throw new Error(`ネットワークに接続されていません。接続後に再度実施してください。`);
+    if (!gis.accessToken) throw new Error(`トークンがないため認証不可。ログイン後に再度実施してください。`);
+  } catch (e) {
+    const msg = `[gis.confirmBeforeConnect] error:${e}`
+    console.log(msg);
+    throw new Error(msg);
+  }
+};
+
 // 認証ヘッダー付きでfetchを実行
 gis.authfetch=async(url, options={})=>{
-  // console.log(`[gis.authfetch] start url:${url}, options:${JSON.stringify(options)}`);
-  console.log(`[gis.authfetch] start url:${url}, options:${truncateText(JSON.stringify(options))}`);
+  // console.log(`[gis.authfetch] start url:${url}, options:${truncateText(JSON.stringify(options))}`);
   try {
-    if (!navigator.onLine) throw new Error(`ネットワークに接続されていません。接続後にアプリを再起動してください。`);
-    if (!gis.accessToken) throw new Error(`トークンがないため認証不可。アプリを再起動してください。`);
+    await gis.confirmBeforeConnect();
     const authOptions = {
       ...options,
       headers: { ...options.headers, 'Authorization': `Bearer ${gis.accessToken}` }
     };
     const response = await fetch(url, authOptions);
-    console.log(`[gis.authfetch] status: ${response.status}`);
+    // console.log(`[gis.authfetch] status: ${response.status}`);
     if (!response.ok) {
       const errorDetail = await response.json().catch(() => ({}));
       console.log(`[gis.authfetch] errorDetail: ${JSON.stringify(errorDetail)}`); // エラー詳細表示
       if (response.status === 401) throw new Error(`通信時にエラーが発生しました。セッションの有効期限が切れた可能性が高いため、アプリを再起動してください。`); // 認証情報の不足、もしくは無効
       if (response.status === 403) throw new Error(`通信時にエラーが発生しました。ログイン時にGoogleDriveアクセス許可欄にチェックしていない、もしくは反映に時間がかかっている可能性があります。アプリを複数回再起動してください。`); // 認証が失敗
     }
-    console.log(`[gis.authfetch] normal end`);
+    // console.log(`[gis.authfetch] normal end`);
     return response;
   } catch(e) {
     const msg = `[gis.authfetch] error:${e}`
-    console.log(msg); throw new Error(msg);
-    // console.log(msg); alert(msg); throw new Error(msg);
+    console.log(msg);
+    throw new Error(msg);
   }
 }
 
-// ファイルを保存（新規作成 or 更新）
-gis.saveFile=async(filename, contentObj)=>{
-  const fileId = await gis.findFileId(filename);
-  const boundary = 'sync_boundary_' + Date.now();
-  const mimeType = 'text/plain';
-  const metadata = { name: filename, mimeType: mimeType };
-  if (!fileId) {
-    // 新規作成 (Multipart upload)
-    const body = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n` +
-                 `--${boundary}\r\nContent-Type: ${mimeType}\r\n\r\n${JSON.stringify(contentObj, null, "  ")}\r\n` +
-                 `--${boundary}--`;
-    await gis.authfetch(`https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart`, {
-      method: 'POST',
-      headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
-      body: body
-    });
-  } else {
-    // 既存更新 (Simple media update)
-    await gis.authfetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': mimeType },
-      body: JSON.stringify(contentObj, null, "  ")
-    });
+// ファイル名からファイルIDを検索する(同一ファイル名が複数ある場合は代表1件のidを返却)
+gis.findFileId=async(filename)=>{
+  try {
+    const q = encodeURIComponent(`name = '${filename}' and 'root' in parents and trashed = false`);
+    const res = await gis.authfetch(`https://www.googleapis.com/drive/v3/files?q=${q}`);
+    const json = await res.json();
+    return json.files && json.files.length > 0 ? json.files[0].id : null;
+  } catch(e) {
+    throw new Error(e);
   }
 };
 
-// ファイル名からファイルIDを検索する
-gis.findFileId=async(filename)=>{
-  const q = encodeURIComponent(`name = '${filename}' and 'root' in parents and trashed = false`);
-  const res = await gis.authfetch(`https://www.googleapis.com/drive/v3/files?q=${q}`);
-  const json = await res.json();
-  return json.files && json.files.length > 0 ? json.files[0].id : null;
+// ファイルを読み込む(ファイルが存在しないときはnull、取得できたときはjsonオブジェクトで返却）
+gis.readFile=async(filename)=>{
+  try {
+    const fileId = await gis.findFileId(filename);
+    let resObj = null;
+    if (fileId) {
+      const res = await gis.authfetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`);
+      resObj = await res.json();
+    }
+    return resObj;
+  } catch(e) {
+    throw new Error(e);
+  }
+};
+
+// ファイルを保存(新規作成or更新)
+gis.saveFile=async(filename, contentObj)=>{
+  try {
+    const fileId = await gis.findFileId(filename);
+    const boundary = 'sync_boundary_' + Date.now();
+    const mimeType = 'text/plain';
+    const metadata = { name: filename, mimeType: mimeType };
+    if (!fileId) {
+      // 新規作成 (Multipart upload)
+      const body = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n` +
+                  `--${boundary}\r\nContent-Type: ${mimeType}\r\n\r\n${JSON.stringify(contentObj, null, "  ")}\r\n` +
+                  `--${boundary}--`;
+      await gis.authfetch(`https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart`, {
+        method: 'POST',
+        headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
+        body: body
+      });
+    } else {
+      // 既存更新 (Simple media update)
+      await gis.authfetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': mimeType },
+        body: JSON.stringify(contentObj, null, "  ")
+      });
+    }
+  } catch(e) {
+    throw new Error(e);
+  }
+};
+
+// Local<-Drive
+gis.download=async(isTouchProcessing=true)=>{
+  if (isTouchProcessing) gis.isProcessing = true;
+  console.log(`[gis.download] start`);
+  try {
+    const user = await storage_info.get("user");
+    if (!user) throw new Error(`ユーザ情報が存在しません。ログイン後に再度実施してください。`);
+
+    const DT_FILE = `${gis.appName}.datetime.json.txt`;
+    const driveDtObj = await gis.readFile(DT_FILE);
+    if (!driveDtObj) throw new Error(`タイムスタンプの受信に失敗しました。ローカルの更新失敗。`);
+
+    const DATA_FILE = `${gis.appName}.data.json.txt`;
+    const driveDataContent = await gis.readFile(DATA_FILE);
+    if (!driveDataContent) throw new Error(`データの受信に失敗しました。ローカルの更新失敗。`);
+
+    const newLocal = {
+      datetime: driveDtObj.datetime,
+      data: driveDataContent
+    };
+    await storage_app.set(user.id, newLocal); // ローカルを更新
+
+    console.log(`[gis.download] success`);
+  } catch (e) {
+    console.log(`[gis.download] error:`, e);
+    if (isTouchProcessing) gis.isProcessing = false;
+    throw new Error(e);
+  }
+  console.log(`[gis.download] end`);
+};
+
+// Local->Drive
+gis.upload=async(isTouchProcessing=true)=>{
+  if (isTouchProcessing) gis.isProcessing = true;
+  console.log(`[gis.upload] start`);
+  try {
+    const user = await storage_info.get("user");
+    if (!user) throw new Error(`ユーザ情報が存在しません。ログイン後に再度実施してください。`);
+
+    const localData = await storage_app.get(user.id) || { datetime: "1970-01-01T00:00:00.000", data: {} };
+
+    const DT_FILE = `${gis.appName}.datetime.json.txt`;
+    await gis.saveFile(DT_FILE, { datetime: localData.datetime }); // 日時ファイルを保存
+
+    const DATA_FILE = `${gis.appName}.data.json.txt`;
+    await gis.saveFile(DATA_FILE, localData.data); // データファイルを保存
+
+    console.log(`[gis.upload] success`);
+  } catch (e) {
+    console.log(`[gis.upload] error:`, e);
+    if (isTouchProcessing) gis.isProcessing = false;
+    throw new Error(e);
+  }
+  console.log(`[gis.upload] end`);
+};
+
+// ローカルが最新か否か
+gis.isLastestLocal=async(isTouchProcessing=true)=>{
+  if (isTouchProcessing) gis.isProcessing = true;
+  console.log(`[gis.isLastestLocal] start`);
+  try {
+    const user = await storage_info.get("user");
+    if (!user) throw new Error(`ユーザ情報が存在しません。ログイン後に再度実施してください。`);
+
+    const DT_FILE = `${gis.appName}.datetime.json.txt`;
+
+    // 1. ローカルデータの取得（storageオブジェクトを想定）
+    const localData = await storage_app.get(user.id) || { datetime: "1970-01-01T00:00:00.000", data: {} };
+
+    // 2. Drive上の datetime ファイルを検索
+    const driveDtObj = await gis.readFile(DT_FILE);
+
+    // 3. 最新性の判定
+    const localTime = new Date(localData.datetime).getTime();
+    const driveTime = driveDtObj ? new Date(driveDtObj.datetime).getTime() : 0;
+    console.log(`[gis.syncAppData] local:${localData.datetime}, drive:${driveDtObj?.datetime || 'none'}`);
+
+    return (!driveDtObj || localTime > driveTime)
+  } catch (e) {
+    console.log(`[gis.isLastestLocal] error:`, e);
+    if (isTouchProcessing) gis.isProcessing = false;
+    throw new Error(e);
+  }
+  console.log(`[gis.isLastestLocal] end`);
+};
+
+// アプリデータ同期
+gis.syncAppData=async(isTouchProcessing=true)=>{
+  if (isTouchProcessing) gis.isProcessing = true;
+  console.log(`[gis.syncAppData] start`);
+  try {
+    if (await gis.isLastestLocal(false)) {
+      console.log(`[gis.syncAppData] ローカルが最新。アップロードしてドライブを上書きします。`);
+      await gis.upload(false);
+      console.log(`[gis.syncAppData] アップロードが成功しました`);
+    } else {
+      console.log(`[gis.syncAppData] ドライブが最新。ダウンロードしてローカルを上書きします。`);
+      await gis.download(false);
+      console.log(`[gis.syncAppData] ダウンロードが成功しました`);
+    }
+    if (isTouchProcessing) gis.isProcessing = false;
+  } catch (e) {
+    console.log(`[gis.syncAppData] error:`, e);
+    if (isTouchProcessing) gis.isProcessing = false;
+    throw new Error(e);
+  }
+  console.log(`[gis.syncAppData] end`);
 };
 
 // 送信用ログ配列作成
@@ -177,75 +319,12 @@ gis.sendLog=async()=>{
   console.log(`[gis.sendLog] end`);
 };
 
-// アプリデータ同期
-gis.syncAppData=async()=>{
-  gis.isProcessing = true;
-  console.log(`[gis.syncAppData] start`);
-  const DT_FILE = `${gis.appName}.datetime.json.txt`;
-  const DATA_FILE = `${gis.appName}.data.json.txt`;
-
-  try {
-    if (!navigator.onLine) throw new Error(`ネットワークに接続されていません。接続後に再度実施してください。`);
-    const user = await storage_info.get("user")
-    if (!user) throw new Error(`ユーザ情報が存在しません。ログイン後に再度実施してください。`);
-
-    // 1. ローカルデータの取得（storageオブジェクトを想定）
-    const localData = await storage_app.get(user.id) || { datetime: "1970-01-01T00:00:00.000", data: {} };
-    
-    // 2. Drive上の datetime ファイルを検索
-    const dtFileId = await gis.findFileId(DT_FILE);
-    let driveDtObj = null;
-
-    if (dtFileId) {
-      const dtRes = await gis.authfetch(`https://www.googleapis.com/drive/v3/files/${dtFileId}?alt=media`);
-      driveDtObj = await dtRes.json();
-    }
-
-    // 3. 最新性の判定
-    const localTime = new Date(localData.datetime).getTime();
-    const driveTime = driveDtObj ? new Date(driveDtObj.datetime).getTime() : 0;
-    console.log(`[gis.syncAppData] local:${localData.datetime}, drive:${driveDtObj?.datetime || 'none'}`);
-
-    if (!driveDtObj || localTime > driveTime) {
-      // -------------------------------------------
-      // ローカルが最新：Driveへアップロード
-      // -------------------------------------------
-      console.log(`[gis.syncAppData] ローカルが最新です。Driveへ送信します。`);
-      await gis.saveFile(DT_FILE, { datetime: localData.datetime }); // 日時ファイルを保存
-      await gis.saveFile(DATA_FILE, localData.data); // データファイルを保存
-      console.log(`[gis.syncAppData] Driveへの同期完了`);
-    } else {
-      // -------------------------------------------
-      // Driveが最新：Driveからダウンロード
-      // -------------------------------------------
-      console.log(`[gis.syncAppData] Driveが最新です。受信して上書きします。`);
-      const dataFileId = await gis.findFileId(DATA_FILE);
-      if (dataFileId) {
-        const dataRes = await gis.authfetch(`https://www.googleapis.com/drive/v3/files/${dataFileId}?alt=media`);
-        const driveDataContent = await dataRes.json();
-        const newLocal = {
-          datetime: driveDtObj.datetime,
-          data: driveDataContent
-        };
-        await storage_app.set(user.id, newLocal); // ローカルを更新
-        console.log(`[gis.syncAppData] ローカルの更新完了`);
-      }
-    }
-    gis.isProcessing = false;
-  } catch (e) {
-    console.log(`[gis.syncAppData] error:`, e);
-    // alert("同期中にエラーが発生しました。");
-    gis.isProcessing = false;
-  }
-  console.log(`[gis.syncAppData] end`);
-};
-
 // ユーザー情報取得
 gis.fetchUserInfo=async()=>{
   try {
     const url = 'https://www.googleapis.com/oauth2/v3/userinfo';
     const res = await gis.authfetch(url);
-    console.log(`[gis.fetchUserInfo] status: ${res.status}`);
+    // console.log(`[gis.fetchUserInfo] status: ${res.status}`);
     if (!res.ok) throw new Error(`ユーザ情報の取得に失敗しました。`);
     const jsonTxt = await res.text();
     // console.log(`[gis.fetchUserInfo] jsonTxt: ${jsonTxt}`);
@@ -330,7 +409,7 @@ gis.logout=async()=>{
 
 // ログイン成功/失敗後の事後処理、アプリエントリーポイント起動
 gis.finish=async(token)=>{
-  console.log(`[gis.finish] start token:${(token===null?null:truncateText(token,7))}`);
+  // console.log(`[gis.finish] start token:${(token===null?null:truncateText(token,7))}`);
   // console.log(`[gis.finish] start token:${token}`);
   // console.log(`[gis.finish] gis.checkFocus:${gis.checkFocus}`);
   if (gis.checkFocus) {
@@ -354,7 +433,7 @@ gis.finish=async(token)=>{
   }
   // console.log(`[gis.finish] gis.checkFocus:${gis.checkFocus}`);
   // console.log(`[gis.finish] gis keys:${JSON.stringify(Object.keys(gis), null, "  ")}`);
-  console.log(`[gis.finish] end`);
+  // console.log(`[gis.finish] end`);
   await gis.refreshInOut()
   await gis.appEntry();
   gis.isProcessing = false;
@@ -363,7 +442,7 @@ gis.finish=async(token)=>{
 // ログイン画面起動
 gis.login=(prompt='')=>{
   gis.isProcessing = true;
-  console.log(`[gis.login] start prompt:${prompt}`);
+  // console.log(`[gis.login] start prompt:${prompt}`);
   if (!navigator.onLine) {
     console.log(`[gis.login] ネットワークに接続されていません。接続後にアプリを再起動してください。`);
     return;
@@ -386,7 +465,7 @@ gis.login=(prompt='')=>{
     }
   }, 1000);
   // console.log(`[gis.login] gis.checkFocus:${gis.checkFocus}`);
-  console.log(`[gis.login] end`);
+  // console.log(`[gis.login] end`);
 }
 
 // デコード（複合化）
@@ -673,6 +752,7 @@ storageSetFuncs.push((k, v)=>{
 const isStoragePrefixAppCommon=(k)=>(typeof(k)=="string")?k.substring(0, 1)=="_":false
 const isStoragePrefixInfo=(k)=>(typeof(k)=="string")?k.substring(0, 1)==".":false
 const getStoragePrefixDel=(k)=>(isStoragePrefixAppCommon(k) || isStoragePrefixInfo(k)) ? k.substring(1) : k
+const isStorageAt=(k)=>(typeof(k)=="string")?k=="@":false
 
 const getAppValueLv1=async(k)=>{
   let appk1
@@ -724,19 +804,27 @@ storagedict.set=async(k, v)=>{
           }
         }
       } else {
-        await storage_info.set(getStoragePrefixDel(k), v)
+        if (isStorageAt(getStoragePrefixDel(k))) {
+         await storage_info.set("datetime", v)
+        } else {
+         await storage_info.set(getStoragePrefixDel(k), v)
+        }
       }
     } else {
       const appk1 = await getAppValueLv1(k)
       let appv1 = await storage_app.get(appk1)
       appv1 = (appv1)?appv1:{}
-      appv1["datetime"] = getDateTime()
-      if (!appv1["data"]) appv1["data"]={}
-      appv1["data"][getStoragePrefixDel(k)]=v // objectのままsetするので文字列化はしない
+      if (isStorageAt(getStoragePrefixDel(k))) {
+        appv1["datetime"] = v
+      } else {
+        appv1["datetime"] = getDateTime()
+        if (!appv1["data"]) appv1["data"]={}
+        appv1["data"][getStoragePrefixDel(k)]=v // objectのままsetするので文字列化はしない
+      }
       await storage_app.set(appk1, appv1)
     }
   }
-  await storage_info.set("datetimeIDB", getDateTime())
+  await storage_info.set("datetime", getDateTime())
   storageSetFuncs.forEach(f=>f(p, v))
   setrunning=false
   return true
@@ -751,14 +839,23 @@ storagedict.get=async(k)=>{
         v = await storage_logsw()
       }
     } else {
-      v = await storage_info.get(getStoragePrefixDel(k))
+      if (isStorageAt(getStoragePrefixDel(k))) {
+        v = await storage_info.get("datetime")
+      } else {
+        v = await storage_info.get(getStoragePrefixDel(k))
+      }
     }
   } else {
     const appk1 = await getAppValueLv1(k)
     const appv1 = await storage_app.get(appk1)
     if (!appv1) return undefined
-    if (!appv1["data"]) return undefined
-    const txt = appv1["data"][getStoragePrefixDel(k)]
+    let txt
+    if (isStorageAt(getStoragePrefixDel(k))) {
+      txt = appv1["datetime"]
+    } else {
+      if (!appv1["data"]) return undefined
+      txt = appv1["data"][getStoragePrefixDel(k)]
+    }
     try {
       const obj = JSON.parse(txt)
       v = obj
@@ -828,16 +925,27 @@ const storagefunc=async(args)=>{
     const appobj = await storage_app()
     const user = await storage_info.get("user")
     const userobj=(user)?appobj[user.id]:appobj.guest
-    if (typeof(userobj)==="object" && typeof(userobj["data"])==="object") {
-      for (let key of Object.keys(userobj["data"])) {
-        obj[key] = userobj["data"][key]
+    if (typeof(userobj)==="object") {
+      if(typeof(userobj["datetime"])==="string") {
+          obj["@"] = userobj["datetime"]
+      }
+      if(typeof(userobj["data"])==="object") {
+        for (let key of Object.keys(userobj["data"])) {
+          obj[key] = userobj["data"][key]
+        }
       }
     }
-    if (typeof(appobj.common)==="object" && typeof(appobj.common["data"])==="object") {
-      for (let key of Object.keys(appobj.common["data"])) {
-        obj["_"+key] = appobj.common["data"][key]
+    if (typeof(appobj.common)==="object") {
+      if(typeof(appobj.common["datetime"])==="string") {
+          obj["_@"] = appobj.common["datetime"]
+      }
+      if(typeof(appobj.common["data"])==="object") {
+        for (let key of Object.keys(appobj.common["data"])) {
+          obj["_"+key] = appobj.common["data"][key]
+        }
       }
     }
+    obj[".@"] = await storage_info.get("datetime")
     for (let key of (await storage_info.keys())) {
       obj["."+key] = await storage_info.get(key)
     }
@@ -1470,9 +1578,15 @@ Object.assign(globalThis.Console,{
   "setfuncs": storageSetFuncs,
   "deletelog": deletelog,
   "authfetch": gis.authfetch,
-  "login": gis.login,
-  "logout": gis.logout,
+  "findFileId": gis.findFileId,
+  "readFile": gis.readFile,
+  "saveFile": gis.saveFile,
+  "download": gis.download,
+  "upload": gis.upload,
+  "isLastestLocal": gis.isLastestLocal,
   "sync": gis.syncAppData,
+  "logout": gis.logout,
+  "login": gis.login,
   "isproc": ()=>gis.isProcessing,
 })
 return storage

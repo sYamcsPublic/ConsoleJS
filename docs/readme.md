@@ -1,4 +1,5 @@
-# Console.js (v2.1.0)
+
+# ConsoleJS
 
 `Console.js` は、Webアプリケーションのデバッグを強力にサポートするライブラリです。
 アプリケーション内に仮想コンソール画面を埋め込み、`console.log` をフックしてログを表示するだけでなく、Google Drive を利用したデータ同期やログのバックアップ、IndexedDB を活用したストレージ機能を提供します。
@@ -80,6 +81,12 @@ HTMLファイルで以下のように読み込みます。
   await kv.set("_commonData", "value1"); const commonData = await kv.get("_commonData"); // "_"開始：ユーザーを問わない共通データ (common領域)
   await kv.set("userData", "value2"); const userData = await kv.get("userData"); // 接頭辞なし：ログインしている場合はユーザー別の領域、ログインしていない場合はguest領域
 
+  // 各領域の保存日時を取得
+  const datetimeInfo = await kv.get(".@"); // info領域
+  const datetimeCommon = await kv.get("_@"); // common領域
+  const datetimeUser = await kv.get("@"); // user/guest領域
+  console.log(`datetime info:${datetimeInfo}, common:${datetimeCommon}, user:${datetimeUser}`)
+
   // キー一覧の取得
   const keys = await kv.keys(); // 
   console.log(`keys:${JSON.stringify(keys)}`)
@@ -117,16 +124,16 @@ HTMLファイルで以下のように読み込みます。
 
 ## 公開API
 
-JavaScript側から直接呼び出し可能な関数やプロパティなどです。
+JavaScript側から直接呼び出し可能な関数などの一例です。
 
 * `await Console.promise`: ライブラリの初期化完了を待機します。
 * `await Console.settings({})`: ライブラリの初期設定を行います。
 * `await Console.deletelog()`: ログを削除します。
 * `Console.storage`: ストレージ操作関数群を保有するオブジェクトです。
 * `Console.login()`: Google ログイン画面を起動します。
-* `await Console.authfetch(url, options={})`: 認証情報を使ってfetchします。
+* `await Console.logout()`: Google ログアウト処理を実行します。
 * `await Console.sync()`: Google Drive との同期を実行します。
-* `await Console.logout()`: ログアウト処理を実行します。
+* `await Console.authfetch(url, options={})`: 認証情報を使ってfetchします。
 * `Console.isproc()`: 通信中/処理中であれば `true` を返します。
 
 ## ライセンス
