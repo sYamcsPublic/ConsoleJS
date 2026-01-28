@@ -32,6 +32,9 @@ HTMLファイルで以下のように読み込みます。
 
 画面右下に表示される「＋」ボタンをタップするとコンソールが開きます。下部の入力欄からコマンド（`@`で始まる命令）を実行可能です。
 
+また、初期設定、ストレージ機能などの具体的な実装方法は`index.html`をご参照ください。以下、代表例を示します。
+
+
 ## 初期設定 (Console.settings)
 
 ライブラリの挙動をカスタマイズするには、読み込み後に一度だけ `Console.settings` を呼び出します。
@@ -62,42 +65,102 @@ HTMLファイルで以下のように読み込みます。
 
 ```javascript
 (async()=>{
-  // 準備例 (アプリ起動時などに1度だけ実施)
-  await Console.promise; const kv = Console.storage; // ライブラリの初期化完了を待機(必須)、ストレージを変数`kv`で参照できるようにします(任意)
-  await Console.settings({storage:false}) // ライブラリの初期設定を実施します(任意 参考:storage:trueにするとIndexedDBを対象とします)
 
-  // データの保存 (自動的に保存日時が内部に記録されます)
+  console.log(`データの保存（自動的に保存日時が内部に記録されます）`)
   await kv.set("key1", "text");
   await kv.set("key2", 100);
   await kv.set("key3", { name: "text", value: 100 });
 
-  // データの取得
+  console.log(`データの取得`)
   const value1 = await kv.get("key1");
   const value2 = await kv.get("key2");
   const value3 = await kv.get("key3");
+  console.log(`value1:${value1}, value2:${value2}, value3:${JSON.stringify(value3)}`)
 
-  // キーの接頭辞による分類
-  const settings = await kv.get(".setting"); // "."開始：システム情報 (info領域)
-  await kv.set("_commonData", "value1"); const commonData = await kv.get("_commonData"); // "_"開始：ユーザーを問わない共通データ (common領域)
-  await kv.set("userData", "value2"); const userData = await kv.get("userData"); // 接頭辞なし：ログインしている場合はユーザー別の領域、ログインしていない場合はguest領域
+  console.log(`キーの接頭辞による分類`)
+  await kv.set(".infoData", "value2"); const settings = await kv.get(".infoData"); // "."開始：システム情報 (info領域) ※機能としては作成しているが、挙動が不安定になる可能性がある利用には注意
+  await kv.set("_commonData", "value3"); const commonData = await kv.get("_commonData"); // "_"開始：ユーザーを問わない共通データ (common領域)
+  await kv.set("userData", "value4"); const userData = await kv.get("userData"); // 接頭辞なし：ログインしている場合はユーザー別の領域、ログインしていない場合はguest領域
 
-  // 各領域の保存日時を取得
+  console.log(`各領域の保存日時を取得`)
   const datetimeInfo = await kv.get(".@"); // info領域
   const datetimeCommon = await kv.get("_@"); // common領域
   const datetimeUser = await kv.get("@"); // user/guest領域
   console.log(`datetime info:${datetimeInfo}, common:${datetimeCommon}, user:${datetimeUser}`)
 
-  // キー一覧の取得
-  const keys = await kv.keys(); // 
-  console.log(`keys:${JSON.stringify(keys)}`)
+  console.log(`[欄外]各領域の保存日時を強制設定`)
+  await kv.set("@", "3037-14-56T87:65:43.217"); // user/guest領域
+  const datetimeUserAf = await kv.get("@"); // user/guest領域
+  await kv.set("_@", "4037-14-56T87:65:43.218"); // common領域
+  const datetimeCommonAf = await kv.get("_@"); // common領域
+  await kv.set(".@", "5037-14-56T87:65:43.219"); // info領域
+  const datetimeInfoAf = await kv.get(".@"); // info領域
+  console.log(`datetime info:${datetimeInfoAf}, common:${datetimeCommonAf}, user:${datetimeUserAf}`)
+  console.log(`※info領域は強制設定後に実時間で処理が正しい値に上書きする仕様`)
 
-  // keys&valuesの取得
-  const KeysAndValues = await kv();
-  console.log(`KeysAndValues:${JSON.stringify(KeysAndValues)}`)
+  console.log(`データの一括設定`)
+  console.log(`"^"でdrive領域への設定が可能、省略時は""(user/guest領域)扱い`)
+  console.log(`※一括設定時に指定するオブジェクトの最も浅いキーへの各領域の接頭辞付与は任意(付与していたら保存時に先頭一文字を自動削除する)`)
+  console.log(`@キーで保存日時を強制設定することも可能。@キーで指定しなければ処理時間で自動設定する。`)
+  await kv.sets("^", {  // drive領域
+    // "@": "3026-34-56T78:90:12.345", // user/common/info領域と同様に指定は任意
+    driveKey1: "driveValue1",
+    driveKey2: 200,
+    driveKey3: {
+      name: "foo", value: 200
+    },
+  });
+  // await kv.sets(".", {  // info領域 ※機能としては作成しているが、挙動が不安定になる可能性がある利用には注意
+  //   "@": "3026-34-56T78:90:12.345",
+  //   infoKey1: "infoValue1",
+  //   infoKey2: 300,
+  //   infoKey3: {
+  //     name: "bar", value: 300
+  //   },
+  // });
+  await kv.sets("_", {  // common領域
+    "@": "3026-34-56T78:90:12.345", // "@"キーで強制的に保存日時を指定することが可能
+    commonKey1: "commonValue1",
+    commonKey2: 400,
+    commonKey3: {
+      name: "biz", value: 400
+    },
+  });
+  await kv.sets("", {  // user/guest領域
+    // "@": "3026-34-56T78:90:12.345", // "@"キーを省略すると処理日時が自動的に保存される
+    userKey1: "userValue1",
+    userKey2: 500,
+    userKey3: {
+      name: "qux", value: 500
+    },
+  });
 
-  // ユーザ情報の取得
+  console.log(`データの一括取得（一括設定後）`)
+  console.log(`"^"でdrive領域から取得が可能、省略時は""(user/guest領域)扱い`)
+  const driveDatas = await kv.gets("^"); // drive領域
+  console.log(`driveDatas:${JSON.stringify(driveDatas)}`)
+  const infoDatas = await kv.gets("."); // info領域
+  console.log(`infoDatas:${JSON.stringify(infoDatas)}`)
+  const commonDatas = await kv.gets("_"); // common領域
+  console.log(`commonDatas:${JSON.stringify(commonDatas)}`)
+  const userDatas = await kv.gets(""); // user/guest領域
+  console.log(`userDatas:${JSON.stringify(userDatas)}`)
+
+  console.log(`キー一覧の取得（一括設定後）`)
+  console.log(`"^"でdrive領域から取得が可能、省略時は""(user/guest領域)扱い`)
+  const driveKeys = await kv.keys("^"); // drive領域
+  console.log(`driveKeys:${JSON.stringify(driveKeys)}`) // driveKeys:["^@","^driveKey1","^driveKey2","^driveKey3"]
+  const infoKeys = await kv.keys("."); // info領域
+  console.log(`infoKeys:${JSON.stringify(infoKeys)}`) // infoKeys:[".@",".datetime",".infoData",".settings",".user"]
+  const commonKeys = await kv.keys("_"); // common領域
+  console.log(`commonKeys:${JSON.stringify(commonKeys)}`) // commonKeys:["_@","_commonKey1","_commonKey2","_commonKey3"]
+  const userKeys = await kv.keys(""); // user/guest領域
+  console.log(`userKeys:${JSON.stringify(userKeys)}`) // userKeys:["@","userKey1","userKey2","userKey3"]
+
+  console.log(`ログインユーザ情報の取得`)
   const userinfo = await kv.get(".user");
-  console.log(`keys:${(userinfo)?JSON.stringify(userinfo):userinfo}`)
+  console.log(`userinfo:${(userinfo)?JSON.stringify(userinfo):userinfo}`)
+
 }))
 ```
 
@@ -130,11 +193,11 @@ JavaScript側から直接呼び出し可能な関数などの一例です。
 * `await Console.settings({})`: ライブラリの初期設定を行います。
 * `await Console.deletelog()`: ログを削除します。
 * `Console.storage`: ストレージ操作関数群を保有するオブジェクトです。
-* `Console.login()`: Google ログイン画面を起動します。
-* `await Console.logout()`: Google ログアウト処理を実行します。
-* `await Console.sync()`: Google Drive との同期を実行します。
-* `await Console.authfetch(url, options={})`: 認証情報を使ってfetchします。
-* `Console.isproc()`: 通信中/処理中であれば `true` を返します。
+* `Console.gis.login()`: Google ログイン画面を起動します。
+* `await Console.gis.logout()`: Google ログアウト処理を実行します。
+* `await Console.gis.sync()`: Google Drive との同期を実行します。
+* `await Console.gis.authfetch(url, options={})`: 認証情報を使ってfetchします。
+* `Console.gis.isProcessing`: 通信中/処理中であれば `true` を返します。
 
 ## ライセンス
 MIT License  

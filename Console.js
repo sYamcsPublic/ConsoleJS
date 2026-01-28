@@ -1,6 +1,6 @@
 "use strict";
 globalThis.Console=async(args={})=>{
-const VERSION = "2.1.1"
+const VERSION = "2.1.4"
 const iswin = (typeof(window)!=="undefined")
 const issw  = (typeof(ServiceWorkerGlobalScope)!=="undefined")
 const canbcc = (typeof(globalThis.BroadcastChannel)!=="undefined")
@@ -86,9 +86,10 @@ gis.confirmBeforeConnect=async()=>{
     if (!navigator.onLine) throw new Error(`ネットワークに接続されていません。接続後に再度実施してください。`);
     if (!gis.accessToken) throw new Error(`トークンがないため認証不可。ログイン後に再度実施してください。`);
   } catch (e) {
-    const msg = `[gis.confirmBeforeConnect] error:${e}`
+    const msg = `[gis.confirmBeforeConnect] ${e}`
     console.log(msg);
-    throw new Error(msg);
+    throw msg;
+    // throw new Error(msg);
   }
 };
 
@@ -112,9 +113,10 @@ gis.authfetch=async(url, options={})=>{
     // console.log(`[gis.authfetch] normal end`);
     return response;
   } catch(e) {
-    const msg = `[gis.authfetch] error:${e}`
+    const msg = `[gis.authfetch] ${e}`
     console.log(msg);
-    throw new Error(msg);
+    throw msg;
+    // throw new Error(msg);
   }
 }
 
@@ -126,7 +128,8 @@ gis.findFileId=async(filename)=>{
     const json = await res.json();
     return json.files && json.files.length > 0 ? json.files[0].id : null;
   } catch(e) {
-    throw new Error(e);
+    throw e;
+    // throw new Error(e);
   }
 };
 
@@ -141,7 +144,8 @@ gis.readFile=async(filename)=>{
     }
     return resObj;
   } catch(e) {
-    throw new Error(e);
+    throw e;
+    // throw new Error(e);
   }
 };
 
@@ -171,117 +175,58 @@ gis.saveFile=async(filename, contentObj)=>{
       });
     }
   } catch(e) {
-    throw new Error(e);
+    throw e;
+    // throw new Error(e);
   }
-};
-
-// Local<-Drive
-gis.download=async(isTouchProcessing=true)=>{
-  if (isTouchProcessing) gis.isProcessing = true;
-  console.log(`[gis.download] start`);
-  try {
-    const user = await storage_info.get("user");
-    if (!user) throw new Error(`ユーザ情報が存在しません。ログイン後に再度実施してください。`);
-
-    const DT_FILE = `${gis.appName}.datetime.json.txt`;
-    const driveDtObj = await gis.readFile(DT_FILE);
-    if (!driveDtObj) throw new Error(`タイムスタンプの受信に失敗しました。ローカルの更新失敗。`);
-
-    const DATA_FILE = `${gis.appName}.data.json.txt`;
-    const driveDataContent = await gis.readFile(DATA_FILE);
-    if (!driveDataContent) throw new Error(`データの受信に失敗しました。ローカルの更新失敗。`);
-
-    const newLocal = {
-      datetime: driveDtObj.datetime,
-      data: driveDataContent
-    };
-    await storage_app.set(user.id, newLocal); // ローカルを更新
-
-    console.log(`[gis.download] success`);
-  } catch (e) {
-    console.log(`[gis.download] error:`, e);
-    if (isTouchProcessing) gis.isProcessing = false;
-    throw new Error(e);
-  }
-  console.log(`[gis.download] end`);
-};
-
-// Local->Drive
-gis.upload=async(isTouchProcessing=true)=>{
-  if (isTouchProcessing) gis.isProcessing = true;
-  console.log(`[gis.upload] start`);
-  try {
-    const user = await storage_info.get("user");
-    if (!user) throw new Error(`ユーザ情報が存在しません。ログイン後に再度実施してください。`);
-
-    const localData = await storage_app.get(user.id) || { datetime: "1970-01-01T00:00:00.000", data: {} };
-
-    const DT_FILE = `${gis.appName}.datetime.json.txt`;
-    await gis.saveFile(DT_FILE, { datetime: localData.datetime }); // 日時ファイルを保存
-
-    const DATA_FILE = `${gis.appName}.data.json.txt`;
-    await gis.saveFile(DATA_FILE, localData.data); // データファイルを保存
-
-    console.log(`[gis.upload] success`);
-  } catch (e) {
-    console.log(`[gis.upload] error:`, e);
-    if (isTouchProcessing) gis.isProcessing = false;
-    throw new Error(e);
-  }
-  console.log(`[gis.upload] end`);
-};
-
-// ローカルが最新か否か
-gis.isLastestLocal=async(isTouchProcessing=true)=>{
-  if (isTouchProcessing) gis.isProcessing = true;
-  console.log(`[gis.isLastestLocal] start`);
-  try {
-    const user = await storage_info.get("user");
-    if (!user) throw new Error(`ユーザ情報が存在しません。ログイン後に再度実施してください。`);
-
-    const DT_FILE = `${gis.appName}.datetime.json.txt`;
-
-    // 1. ローカルデータの取得（storageオブジェクトを想定）
-    const localData = await storage_app.get(user.id) || { datetime: "1970-01-01T00:00:00.000", data: {} };
-
-    // 2. Drive上の datetime ファイルを検索
-    const driveDtObj = await gis.readFile(DT_FILE);
-
-    // 3. 最新性の判定
-    const localTime = new Date(localData.datetime).getTime();
-    const driveTime = driveDtObj ? new Date(driveDtObj.datetime).getTime() : 0;
-    console.log(`[gis.syncAppData] local:${localData.datetime}, drive:${driveDtObj?.datetime || 'none'}`);
-
-    return (!driveDtObj || localTime > driveTime)
-  } catch (e) {
-    console.log(`[gis.isLastestLocal] error:`, e);
-    if (isTouchProcessing) gis.isProcessing = false;
-    throw new Error(e);
-  }
-  console.log(`[gis.isLastestLocal] end`);
 };
 
 // アプリデータ同期
-gis.syncAppData=async(isTouchProcessing=true)=>{
+gis.sync=async(isTouchProcessing=true)=>{
   if (isTouchProcessing) gis.isProcessing = true;
-  console.log(`[gis.syncAppData] start`);
+  console.log(`[gis.sync] start`);
+  let action = "none"
   try {
-    if (await gis.isLastestLocal(false)) {
-      console.log(`[gis.syncAppData] ローカルが最新。アップロードしてドライブを上書きします。`);
-      await gis.upload(false);
-      console.log(`[gis.syncAppData] アップロードが成功しました`);
+    const user = await storage_info.get("user");
+    if (!user) throw new Error(`ユーザ情報が存在しません。ログイン後に再度実施してください。`);
+
+    // ローカルデータの取得（storageオブジェクトを想定）
+    const localData = await storage_app.get(user.id) || { datetime: "1970-01-01T00:00:00.000", data: {} };
+
+    // Drive上の datetime ファイルを取得
+    const driveTimeObj = await gis.readFile(`${gis.appName}.datetime.json.txt`);
+
+    // 最新性の判定
+    const localTime = new Date(localData.datetime).getTime();
+    const driveTime = driveTimeObj ? new Date(driveTimeObj.datetime).getTime() : 0;
+    console.log(`[gis.isLastestLocal] local:${localData.datetime}, drive:${driveTimeObj?.datetime || 'none'}`);
+
+    if (localTime > driveTime) {
+      console.log(`[gis.sync] ローカルが最新。アップロードしてドライブを上書きします。`);
+      await gis.saveFile(`${gis.appName}.data.json.txt`, localData.data); // データファイルを保存
+      await gis.saveFile(`${gis.appName}.datetime.json.txt`, { datetime: localData.datetime }); // 日時ファイルを保存
+      console.log(`[gis.sync] アップロードが成功しました`);
+      action = "upload"
+    } else if (localTime < driveTime) {
+      console.log(`[gis.sync] ドライブが最新。ダウンロードしてローカルを上書きします。`);
+      const driveDataObj = await gis.readFile(`${gis.appName}.data.json.txt`);
+      await storage_app.set(user.id, { // ローカルを更新
+        datetime: driveTimeObj.datetime,
+        data: driveDataObj
+      });
+      console.log(`[gis.sync] ダウンロードが成功しました`);
+      action = "download"
     } else {
-      console.log(`[gis.syncAppData] ドライブが最新。ダウンロードしてローカルを上書きします。`);
-      await gis.download(false);
-      console.log(`[gis.syncAppData] ダウンロードが成功しました`);
+      console.log(`[gis.sync] ローカルとドライブは同一です。`);
     }
     if (isTouchProcessing) gis.isProcessing = false;
   } catch (e) {
-    console.log(`[gis.syncAppData] error:`, e);
+    console.log(`[gis.sync] ${e}`);
     if (isTouchProcessing) gis.isProcessing = false;
-    throw new Error(e);
+    throw e;
+    // throw new Error(e);
   }
-  console.log(`[gis.syncAppData] end`);
+  console.log(`[gis.sync] end`);
+  return action
 };
 
 // 送信用ログ配列作成
@@ -312,7 +257,7 @@ gis.sendLog=async()=>{
     console.log(`[gis.sendLog] Driveへの送信完了`);
     gis.isProcessing = false;
   } catch (e) {
-    console.log(`[gis.sendLog] error:`, e);
+    console.log(`[gis.sendLog] ${e}`);
     // alert("送信中にエラーが発生しました。");
     gis.isProcessing = false;
   }
@@ -401,7 +346,7 @@ gis.logout=async()=>{
     await gis.finish(null);
 
   } catch (e) {
-    console.log(`[gis.logout] error:${e}`);
+    console.log(`[gis.logout] ${e}`);
     gis.isProcessing = false;
   }
   console.log(`[gis.logout] end`);
@@ -548,8 +493,8 @@ gis.init=async(args={})=>{
       console.log(`[gis.init] 自作ログイン画面を使わないため、自動ログインを試行。`);
       gis.login();
     }
-  } catch (error) {
-    console.log('[gis.init] error:', error);
+  } catch (e) {
+    console.log(`[gis.init] ${e}`);
     gis.isProcessing = false;
   }
   console.log(`[gis.init] end`)
@@ -608,12 +553,12 @@ const idbfunc=(args={})=>{
         if (fake) {
           let result
           switch(f){
+            case "get":
+              result=globalThis[dbname][objname][k]
+              break
             case "set":
               globalThis[dbname][objname][k]=v
               result=true
-              break
-            case "get":
-              result=globalThis[dbname][objname][k]
               break
             case "keys":
               result=Object.keys(globalThis[dbname][objname])
@@ -634,14 +579,14 @@ const idbfunc=(args={})=>{
           req.onsuccess=(ev)=>{
             let req
             switch(f){
+              case "get":
+                req = ev.target.result.transaction(objname, "readonly").objectStore(objname).get(k)
+                break
               case "set":
                 // console.info(`[set]k:${k},v:${(typeof(v)==="object")?JSON.stringify(v):v}`)
                 const vTxt = JSON.stringify(v) // 関数をオブジェクトに含んでいるとエラーになってしまうため、文字列化→再度オブジェクト化して除去
                 const vObj = JSON.parse(vTxt)
                 req = ev.target.result.transaction(objname, "readwrite").objectStore(objname).put(vObj, k)
-                break
-              case "get":
-                req = ev.target.result.transaction(objname, "readonly").objectStore(objname).get(k)
                 break
               case "keys":
                 req = ev.target.result.transaction(objname, "readonly").objectStore(objname).getAllKeys()
@@ -666,8 +611,8 @@ const idbfunc=(args={})=>{
     }
 
     const objdict={}
-    objdict.set=(k, v)=>commonfunc("set", k, v)
     objdict.get=(k)=>commonfunc("get", k)
+    objdict.set=(k, v)=>commonfunc("set", k, v)
     objdict.keys=()=>commonfunc("keys")
     objdict.delete=(k)=>commonfunc("delete", k)
     objdict.clear=()=>commonfunc("clear")
@@ -771,6 +716,42 @@ const getAppValueLv1=async(k)=>{
 
 let setque=[], setrunning=false
 const storagedict={}
+storagedict.get=async(k)=>{
+  let v
+  if (isStoragePrefixInfo(k)) {
+    if (k==".log") {
+      if (iswin) {
+        v = await storage_logwin()
+      } else {
+        v = await storage_logsw()
+      }
+    } else {
+      if (isStorageAt(getStoragePrefixDel(k))) {
+        v = await storage_info.get("datetime")
+      } else {
+        v = await storage_info.get(getStoragePrefixDel(k))
+      }
+    }
+  } else {
+    const appk1 = await getAppValueLv1(k)
+    const appv1 = await storage_app.get(appk1)
+    if (!appv1) return undefined
+    let txt
+    if (isStorageAt(getStoragePrefixDel(k))) {
+      txt = appv1["datetime"]
+    } else {
+      if (!appv1["data"]) return undefined
+      txt = appv1["data"][getStoragePrefixDel(k)]
+    }
+    try {
+      const obj = JSON.parse(txt)
+      v = obj
+    } catch(e) {
+      v = txt
+    }
+  }
+  return v
+}
 storagedict.set=async(k, v)=>{
   setque.push([k, v])
   await new Promise(resolve=>{
@@ -829,41 +810,9 @@ storagedict.set=async(k, v)=>{
   setrunning=false
   return true
 }
-storagedict.get=async(k)=>{
-  let v
-  if (isStoragePrefixInfo(k)) {
-    if (k==".log") {
-      if (iswin) {
-        v = await storage_logwin()
-      } else {
-        v = await storage_logsw()
-      }
-    } else {
-      if (isStorageAt(getStoragePrefixDel(k))) {
-        v = await storage_info.get("datetime")
-      } else {
-        v = await storage_info.get(getStoragePrefixDel(k))
-      }
-    }
-  } else {
-    const appk1 = await getAppValueLv1(k)
-    const appv1 = await storage_app.get(appk1)
-    if (!appv1) return undefined
-    let txt
-    if (isStorageAt(getStoragePrefixDel(k))) {
-      txt = appv1["datetime"]
-    } else {
-      if (!appv1["data"]) return undefined
-      txt = appv1["data"][getStoragePrefixDel(k)]
-    }
-    try {
-      const obj = JSON.parse(txt)
-      v = obj
-    } catch(e) {
-      v = txt
-    }
-  }
-  return v
+storagedict.keys=async(prefix="")=>{
+  let obj = await storagedict.gets(prefix)
+  return Object.keys(obj)
 }
 storagedict.delete=async(k)=>{
   let r
@@ -897,11 +846,128 @@ storagedict.clear=async()=>{
   r = await storage_app.clear()
   return r
 }
-storagedict.keys=async()=>{
-  let obj = await storagefunc()
-  return Object.keys(obj)
+storagedict.gets=async(prefix="")=>{
+  let obj={}, appobj={}
+  switch (prefix) {
+    case "^":
+      try {
+        if(!gis.appName || gis.appName==="") return {}
+        const datetime = await gis.readFile(`${gis.appName}.datetime.json.txt`)
+        const data = await gis.readFile(`${gis.appName}.data.json.txt`)
+        if (typeof(datetime)==="object" && typeof(data)==="object") {
+          if(typeof(datetime["datetime"])==="string") {
+              obj["^@"] = datetime["datetime"]
+          }
+          if(typeof(data)==="object") {
+            for (let key of Object.keys(data)) {
+              obj["^"+key] = data[key]
+            }
+          }
+        }
+      } catch(e) {
+        console.log(e)
+        return {}
+      }
+      break
+    case ".":
+      obj[".@"] = await storage_info.get("datetime")
+      for (let key of (await storage_info.keys())) {
+        obj["."+key] = await storage_info.get(key)
+      }
+      break
+    case "_":
+      appobj = await storage_app()
+      if (typeof(appobj.common)==="object") {
+        if(typeof(appobj.common["datetime"])==="string") {
+            obj["_@"] = appobj.common["datetime"]
+        }
+        if(typeof(appobj.common["data"])==="object") {
+          for (let key of Object.keys(appobj.common["data"])) {
+            obj["_"+key] = appobj.common["data"][key]
+          }
+        }
+      }
+      break
+    default:
+      appobj = await storage_app()
+      const user = await storage_info.get("user")
+      const userobj=(user)?appobj[user.id]:appobj.guest
+      if (typeof(userobj)==="object") {
+        if(typeof(userobj["datetime"])==="string") {
+            obj["@"] = userobj["datetime"]
+        }
+        if(typeof(userobj["data"])==="object") {
+          for (let key of Object.keys(userobj["data"])) {
+            obj[key] = userobj["data"][key]
+          }
+        }
+      }
+      break
+  }
+  return obj
 }
-storagedict.getAllKeysValues=async()=>{
+storagedict.sets=async(prefix="",obj={})=>{
+  let res=true, appobj={}
+  if (typeof(obj)!=="object") return false
+  switch (prefix) {
+    case "^":
+      let data = {}
+      for (let key of Object.keys(obj)) {
+        const newkey = (key.slice(0,1)==="^")?key.slice(1):key
+        data[newkey] = structuredClone(obj[key])
+      }
+      try {
+        const datetime = {
+          "datetime": (data["@"]) ? data["@"] : getDateTime()
+        }
+        delete data["@"]
+        await gis.saveFile(`${gis.appName}.data.json.txt`, data)
+        await gis.saveFile(`${gis.appName}.datetime.json.txt`, datetime)
+      } catch(e) {
+        console.log(`[storagedict.sets] ${e}`);
+      }
+      break
+    case ".":
+      let infoobj = {}
+      for (let key of Object.keys(obj)) {
+        const newkey = (key.slice(0,1)===".")?key.slice(1):key
+        infoobj[newkey] = structuredClone(obj[key])
+      }
+      infoobj["datetime"] = (infoobj["@"]) ? infoobj["@"] : getDateTime()
+      delete infoobj["@"]
+      await storage_info(infoobj)
+      break
+    case "_":
+      appobj = await storage_app()
+      let commonobj=appobj["common"]
+      if (typeof(commonobj)!=="object") commonobj={}
+      commonobj["data"] = {}
+      for (let key of Object.keys(obj)) {
+        const newkey = (key.slice(0,1)==="_")?key.slice(1):key
+        commonobj["data"][newkey] = structuredClone(obj[key])
+      }
+      commonobj["datetime"] = (commonobj["@"]) ? commonobj["@"] : getDateTime()
+      delete commonobj["@"]
+      appobj["common"] = {...commonobj}
+      await storage_app(appobj)
+      break
+    default:
+      appobj = await storage_app()
+      const user = await storage_info.get("user")
+      const userid = (user)?user.id:"guest"
+      let userobj=appobj[userid]
+      if (typeof(userobj)!=="object") userobj={}
+      userobj["data"] = {}
+      userobj["data"] = {...obj}
+      userobj["datetime"] = (userobj["@"]) ? userobj["@"] : getDateTime()
+      delete userobj["@"]
+      appobj[userid] = {...userobj}
+      await storage_app(appobj)
+      break
+  }
+  return res
+}
+storagedict.getsAll=async()=>{
   const obj_app = await storage_app()
   const obj_info = await storage_info()
   const obj_logsw = await storage_logsw()
@@ -914,43 +980,14 @@ storagedict.getAllKeysValues=async()=>{
   }
   return obj
 }
-
-const storagefunc=async(args)=>{
-  if (typeof(args)==="object") {
-    await storage_app().clear
-    await storage_app(args)
-    return args
-  } else {
-    let obj={}
-    const appobj = await storage_app()
-    const user = await storage_info.get("user")
-    const userobj=(user)?appobj[user.id]:appobj.guest
-    if (typeof(userobj)==="object") {
-      if(typeof(userobj["datetime"])==="string") {
-          obj["@"] = userobj["datetime"]
-      }
-      if(typeof(userobj["data"])==="object") {
-        for (let key of Object.keys(userobj["data"])) {
-          obj[key] = userobj["data"][key]
-        }
-      }
-    }
-    if (typeof(appobj.common)==="object") {
-      if(typeof(appobj.common["datetime"])==="string") {
-          obj["_@"] = appobj.common["datetime"]
-      }
-      if(typeof(appobj.common["data"])==="object") {
-        for (let key of Object.keys(appobj.common["data"])) {
-          obj["_"+key] = appobj.common["data"][key]
-        }
-      }
-    }
-    obj[".@"] = await storage_info.get("datetime")
-    for (let key of (await storage_info.keys())) {
-      obj["."+key] = await storage_info.get(key)
-    }
-    return obj
+const storagefunc=async()=>{
+  const obj_app = await storage_app()
+  const obj_info = await storage_info()
+  const obj = {
+    "app":obj_app,
+    "info":obj_info,
   }
+  return obj
 }
 const storage=Object.assign(storagefunc, storagedict)
 
@@ -1322,7 +1359,7 @@ const delCache=async()=>{
 
 const viewstorage=async()=>{
   let disp="&ensp;<&ensp;" + "view storage...\n"
-  let jo = await storage.getAllKeysValues()
+  let jo = await storage.getsAll()
   const js=JSON.stringify(jo)
   let size = js.length
   let sizestr=""
@@ -1479,7 +1516,7 @@ const addevents=async()=>{
               await gis.logout()
               break
             case "@sd":
-              await gis.syncAppData()
+              await gis.sync()
               break
             case "@sl":
               await gis.sendLog()
@@ -1577,17 +1614,7 @@ Object.assign(globalThis.Console,{
   "storage": storage,
   "setfuncs": storageSetFuncs,
   "deletelog": deletelog,
-  "authfetch": gis.authfetch,
-  "findFileId": gis.findFileId,
-  "readFile": gis.readFile,
-  "saveFile": gis.saveFile,
-  "download": gis.download,
-  "upload": gis.upload,
-  "isLastestLocal": gis.isLastestLocal,
-  "sync": gis.syncAppData,
-  "logout": gis.logout,
-  "login": gis.login,
-  "isproc": ()=>gis.isProcessing,
+  "gis": gis,
 })
 return storage
 }
