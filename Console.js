@@ -1,6 +1,6 @@
 "use strict";
 globalThis.Console=async(args={})=>{
-const VERSION = "2.1.5"
+const VERSION = "2.1.6"
 const iswin = (typeof(window)!=="undefined")
 const issw  = (typeof(ServiceWorkerGlobalScope)!=="undefined")
 const canbcc = (typeof(globalThis.BroadcastChannel)!=="undefined")
@@ -375,30 +375,30 @@ gis.finish=async(token)=>{
 // ログイン画面起動
 gis.login=(prompt='')=>{
   gis.isProcessing = true;
-  // console.log(`[gis.login] start prompt:${prompt}`);
-  if (!navigator.onLine) {
-    console.log(`[gis.login] ネットワークに接続されていません。接続後にアプリを再起動してください。`);
-    return;
-  }
-  // このタイミングで極小の画面を開いてポップアップブロックをテストする方式だとiPhoneSafariが止まるためテスト方式を不採用としている
-  // console.log(`[gis.login] アクセストークンをリクエストします。prompt:${prompt}`);
-  console.log(`[gis.login] ログイン画面を起動。アクセストークンをリクエストします。`);
-  try {
-    gis.isInRequestAccessToken = true;
-    gis.tokenClient.requestAccessToken({prompt}); // ログイン画面起動。ログイン完了したら gis.init内の tokenClientのcallbackから finish 関数が呼ばれて gis.accessToken が設定され、init処理の後半が進む。
-  } catch(e) {
-    gis.isInRequestAccessToken = false;
-    console.log(`[gis.login] アクセストークンのリクエストに失敗しました。起動アプリがGISを利用する前提で実装しているか、Console.settingsが正しく設定されているか、などを確認してください。`);
-    return
-  }
-  gis.checkFocus = setInterval(() => { // ログイン画面を閉じるなどしてアプリ画面に戻ってくる（あえてログインしなかった場合を配慮）
-    if (gis.isInRequestAccessToken && document.hasFocus()) {
-      console.log(`[gis.login] ログイン画面を閉じるなどしてアプリ画面に戻ってきたためログインをキャンセルしたと判断`);
+    // console.log(`[gis.login] start prompt:${prompt}`);
+    if (!navigator.onLine) {
+      console.log(`[gis.login] ネットワークに接続されていません。`);
       gis.finish(null);
     }
-  }, 1000);
-  // console.log(`[gis.login] gis.checkFocus:${gis.checkFocus}`);
-  // console.log(`[gis.login] end`);
+    // このタイミングで極小の画面を開いてポップアップブロックをテストする方式だとiPhoneSafariが止まるためテスト方式を不採用としている
+    // console.log(`[gis.login] アクセストークンをリクエストします。prompt:${prompt}`);
+    console.log(`[gis.login] ログイン画面を起動。アクセストークンをリクエストします。`);
+    try {
+      gis.isInRequestAccessToken = true;
+      gis.tokenClient.requestAccessToken({prompt}); // ログイン画面起動。ログイン完了したら gis.init内の tokenClientのcallbackから finish 関数が呼ばれて gis.accessToken が設定され、init処理の後半が進む。
+    } catch(e) {
+      gis.isInRequestAccessToken = false;
+      console.log(`[gis.login] アクセストークンのリクエストに失敗しました。起動アプリがGISを利用する前提で実装しているか、Console.settingsが正しく設定されているか、などを確認してください。`);
+      gis.finish(null);
+    }
+    gis.checkFocus = setInterval(() => { // ログイン画面を閉じるなどしてアプリ画面に戻ってくる（あえてログインしなかった場合を配慮）
+      if (gis.isInRequestAccessToken && document.hasFocus()) {
+        console.log(`[gis.login] ログイン画面を閉じるなどしてアプリ画面に戻ってきたためログインをキャンセルしたと判断`);
+        gis.finish(null);
+      }
+    }, 1000);
+    // console.log(`[gis.login] gis.checkFocus:${gis.checkFocus}`);
+    // console.log(`[gis.login] end`);
 }
 
 // デコード（複合化）
