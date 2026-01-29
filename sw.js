@@ -1,15 +1,25 @@
 "use strict";
-const VERSION="1.0.4"; 
-importScripts("./Console.js"); await Console.promise; let kv = Console.storage;
+const VERSION="1.0.6";
 console.log(`[sw.js] start / version:${VERSION}`);
-await Console.settings({storage:false}); await kv.set("_versw", VERSION);
+importScripts("./Console.js"); Console.promise.then(async()=>{
+  console.log(`[sw.js] promise start / version:${VERSION}`);
+  let kv = Console.storage; await Console.settings({storage:false}); await kv.set("_versw", VERSION);
 
-// sample
-await kv.set("swKey1", "swText1");
-const value1 = await kv.get("swKey1");
-console.log(`[sw.js] value1:${value1}`)
+  // sample
+  await kv.set("swKey1", "swText1");
+  const value1 = await kv.get("swKey1");
+  console.log(`[sw.js] promise value1:${value1}`)
+
+  console.log("[sw.js] promise end")
+})
 
 // template
+const cacheName = registration.scope
+const cacheItems = [
+  "./Console.js",
+  "./index.html",
+  "./",
+]
 self.addEventListener("install", (event)=>{
   console.log("[sw.js] install start")
   event.waitUntil((async()=>{
