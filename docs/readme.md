@@ -135,7 +135,7 @@ HTMLファイルで以下のように読み込みます。
     },
   });
 
-  console.log(`データの一括取得（一括設定後）`)
+  console.log(`データの一括取得`)
   console.log(`"^"でdrive領域から取得が可能、省略時は""(user/guest領域)扱い`)
   const driveDatas = await kv.gets("^"); // drive領域
   console.log(`driveDatas:${JSON.stringify(driveDatas)}`)
@@ -146,7 +146,7 @@ HTMLファイルで以下のように読み込みます。
   const userDatas = await kv.gets(""); // user/guest領域
   console.log(`userDatas:${JSON.stringify(userDatas)}`)
 
-  console.log(`キー一覧の取得（一括設定後）`)
+  console.log(`キー一覧の取得`)
   console.log(`"^"でdrive領域から取得が可能、省略時は""(user/guest領域)扱い`)
   const driveKeys = await kv.keys("^"); // drive領域
   console.log(`driveKeys:${JSON.stringify(driveKeys)}`) // driveKeys:["^@","^driveKey1","^driveKey2","^driveKey3"]
