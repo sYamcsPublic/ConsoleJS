@@ -1,6 +1,6 @@
 "use strict";
 globalThis.Console=async(args={})=>{
-const VERSION = "2.1.4"
+const VERSION = "2.1.5"
 const iswin = (typeof(window)!=="undefined")
 const issw  = (typeof(ServiceWorkerGlobalScope)!=="undefined")
 const canbcc = (typeof(globalThis.BroadcastChannel)!=="undefined")
@@ -80,24 +80,12 @@ const truncateText=(str, maxLength = 30)=>{
 const gis={}
 gis.isProcessing = false; // 処理中フラグ
 
-// 接続前確認
-gis.confirmBeforeConnect=async()=>{
-  try {
-    if (!navigator.onLine) throw new Error(`ネットワークに接続されていません。接続後に再度実施してください。`);
-    if (!gis.accessToken) throw new Error(`トークンがないため認証不可。ログイン後に再度実施してください。`);
-  } catch (e) {
-    const msg = `[gis.confirmBeforeConnect] ${e}`
-    console.log(msg);
-    throw msg;
-    // throw new Error(msg);
-  }
-};
-
 // 認証ヘッダー付きでfetchを実行
 gis.authfetch=async(url, options={})=>{
   // console.log(`[gis.authfetch] start url:${url}, options:${truncateText(JSON.stringify(options))}`);
   try {
-    await gis.confirmBeforeConnect();
+    if (!navigator.onLine) throw new Error(`ネットワークに接続されていません。接続後に再度実施してください。`);
+    if (!gis.accessToken) throw new Error(`トークンがないため認証不可。ログイン後に再度実施してください。`);
     const authOptions = {
       ...options,
       headers: { ...options.headers, 'Authorization': `Bearer ${gis.accessToken}` }
@@ -114,7 +102,7 @@ gis.authfetch=async(url, options={})=>{
     return response;
   } catch(e) {
     const msg = `[gis.authfetch] ${e}`
-    console.log(msg);
+    // console.log(msg);
     throw msg;
     // throw new Error(msg);
   }
@@ -865,7 +853,7 @@ storagedict.gets=async(prefix="")=>{
           }
         }
       } catch(e) {
-        console.log(e)
+        console.log(`クラウドデータの一括取得に失敗しました。エラー内容: ${e}`)
         return {}
       }
       break
@@ -924,7 +912,8 @@ storagedict.sets=async(prefix="",obj={})=>{
         await gis.saveFile(`${gis.appName}.data.json.txt`, data)
         await gis.saveFile(`${gis.appName}.datetime.json.txt`, datetime)
       } catch(e) {
-        console.log(`[storagedict.sets] ${e}`);
+        console.log(`クラウドデータの一括取得に失敗しました。エラー内容: ${e}`)
+        // console.log(`[storagedict.sets] ${e}`);
       }
       break
     case ".":

@@ -8,12 +8,14 @@
   <title>ConsoleJS-Sample</title>
 </head>
 <body width="0px" height="0px" style="margin:0"></body>
+<!-- <script defer src="https://syamcspublic.github.io/ConsoleJS/Console.js"></script> -->
 <script defer src="./Console.js"></script>
+<!-- <script>navigator.serviceWorker.register("./sw.js")</script> -->
 <script>
 (async()=>{
 
   // global
-  const VERSION="1.0.1";
+  const VERSION="1.0.3";
   let kv=null;
 
   // get Content from GoogleDocument
@@ -24,7 +26,7 @@
       if (!resp.ok) return null;
       return await resp.text();
     } catch(e) {
-      throw `[index.html getContent] ${e}`;
+      throw e;
     }
   }
 
@@ -71,9 +73,9 @@
     const docid = "xxxxxxxx"; // GoogleDocumentのドキュメントID
     try {
       const content = await getContent(docid);
-      console.log(`[index.html sample] content:${content}`)
+      console.log(`[index.html sample] getContent success content: ${content}`)
     } catch(e) {
-      console.log(`[index.html sample] ${e}`)
+      console.log(`[index.html sample] getContent error: ${e}`)
     }
 
     console.log(`[index.html sample] isProcessing:${Console.gis.isProcessing}`)
@@ -116,6 +118,18 @@
     console.log(`datetime info:${datetimeInfoAf}, common:${datetimeCommonAf}, user:${datetimeUserAf}`)
     console.log(`※info領域は強制設定後に実時間で処理が正しい値に上書きする仕様`)
 
+    console.log(`データの一括取得`)
+    console.log(`"^"でdrive領域から取得が可能、省略時は""(user/guest領域)扱い`)
+    const driveDatas = await kv.gets("^"); // drive領域
+    console.log(`driveDatas:${JSON.stringify(driveDatas)}`)
+    const infoDatas = await kv.gets("."); // info領域
+    console.log(`infoDatas:${JSON.stringify(infoDatas)}`)
+    const commonDatas = await kv.gets("_"); // common領域
+    console.log(`commonDatas:${JSON.stringify(commonDatas)}`)
+    const userDatas = await kv.gets(""); // user/guest領域
+    console.log(`userDatas:${JSON.stringify(userDatas)}`)
+
+/*
     console.log(`データの一括設定`)
     console.log(`"^"でdrive領域への設定が可能、省略時は""(user/guest領域)扱い`)
     console.log(`※一括設定時に指定するオブジェクトの最も浅いキーへの各領域の接頭辞付与は任意(付与していたら保存時に先頭一文字を自動削除する)`)
@@ -152,17 +166,7 @@
         name: "qux", value: 500
       },
     });
-
-    console.log(`データの一括取得`)
-    console.log(`"^"でdrive領域から取得が可能、省略時は""(user/guest領域)扱い`)
-    const driveDatas = await kv.gets("^"); // drive領域
-    console.log(`driveDatas:${JSON.stringify(driveDatas)}`)
-    const infoDatas = await kv.gets("."); // info領域
-    console.log(`infoDatas:${JSON.stringify(infoDatas)}`)
-    const commonDatas = await kv.gets("_"); // common領域
-    console.log(`commonDatas:${JSON.stringify(commonDatas)}`)
-    const userDatas = await kv.gets(""); // user/guest領域
-    console.log(`userDatas:${JSON.stringify(userDatas)}`)
+*/
 
     console.log(`キー一覧の取得`)
     console.log(`"^"でdrive領域から取得が可能、省略時は""(user/guest領域)扱い`)
@@ -185,7 +189,7 @@
   // entry point
   const init=async()=>{
     console.log(`[index.html init] start`)
-    await kv.set("_version", VERSION)
+    await kv.set("_veridx", VERSION)
     await readme()
     await sample()
     console.log(`[index.html init] end`)
@@ -193,22 +197,19 @@
 
   // ready
   window.addEventListener("DOMContentLoaded",async()=>{
-    console.log(`[index.html domLoaded] start / version:${VERSION}`)
     await Console.promise; kv = Console.storage;
+    console.log(`[index.html domLoaded] start / version:${VERSION}`)
 
-    // await Console.settings(); // 設定変更が不要ならsettings()の呼び出しは不要
+    // await Console.settings(); // 設定変更が不要ならsettings()の呼び出し自体が不要
+    await init(); // アプリ実装する際のエントリーポイントをinit()とした場合(任意の関数名でok)
 
-    // アプリ実装する際のエントリーポイントをinit()とした場合(任意の関数名でok)
-    await init();
-
-    // 以下はstorage&gis利用サンプル
+    // 以下はstorage&gis利用時のサンプル
     // await Console.settings({ // 記憶領域の利用、gisの利用や表示位置/非表示にするなど、設定を変更するなら一度だけ呼び出し可能
     //   storage:true,
     //   gis:{
     //     appName: 'ConsoleJS-Sample',
     //     appEntry: init, // gis利用時はエントリーポイントはここで指定する
-    //     isEncrypt : true,
-    //     clientId: 'xxxxxxxx',
+    //     clientId: 'xxxxxxxxxxxxxxx',
     // }})
 
     console.log(`[index.html domLoaded] end`)
