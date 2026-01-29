@@ -1,5 +1,5 @@
 "use strict";
-const VERSION="1.0.6";
+const VERSION="1.0.7";
 console.log(`[sw.js] start / version:${VERSION}`);
 importScripts("./Console.js"); Console.promise.then(async()=>{
   console.log(`[sw.js] promise start / version:${VERSION}`);
@@ -14,7 +14,6 @@ importScripts("./Console.js"); Console.promise.then(async()=>{
 })
 
 // template
-const cacheName = registration.scope
 const cacheItems = [
   "./Console.js",
   "./index.html",
