@@ -204,6 +204,8 @@ JavaScript側から直接呼び出し可能な関数などの一例です。
 * `await Console.settings({})`: ライブラリの初期設定を行います。
 * `await Console.deletelog()`: ログを削除します。
 * `Console.storage`: ストレージ操作関数群を保有するオブジェクトです。
+* `Console.online`: 起動時のオンライン・オフラインを表すプロパティです。
+* `Console.datetime()`: 関数呼び出し時の日時をコンソールに出力しているフォーマットで返します。
 * `Console.gis.login()`: Google ログイン画面を起動します。
 * `await Console.gis.logout()`: Google ログアウト処理を実行します。
 * `await Console.gis.sync()`: Google Drive との同期を実行します。
