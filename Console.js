@@ -1,6 +1,6 @@
 "use strict";
 globalThis.Console=async(args={})=>{
-const VERSION = "2.1.6"
+const VERSION = "2.1.7"
 const iswin = (typeof(window)!=="undefined")
 const issw  = (typeof(ServiceWorkerGlobalScope)!=="undefined")
 const canbcc = (typeof(globalThis.BroadcastChannel)!=="undefined")
@@ -10,6 +10,17 @@ const canbcc = (typeof(globalThis.BroadcastChannel)!=="undefined")
 /**
  * common
  */
+
+const isOnline=await(async()=>{
+  try {
+    const url = "https://syamcspublic.github.io/ConsoleJS/ping";
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) return false;
+    return true;
+  } catch(e) {
+    return false;
+  }
+})()
 
 const getDateTime=()=>{
   const toDoubleDigits=(i)=>{
@@ -84,7 +95,8 @@ gis.isProcessing = false; // 処理中フラグ
 gis.authfetch=async(url, options={})=>{
   // console.log(`[gis.authfetch] start url:${url}, options:${truncateText(JSON.stringify(options))}`);
   try {
-    if (!navigator.onLine) throw new Error(`ネットワークに接続されていません。接続後に再度実施してください。`);
+    // if (!navigator.onLine) throw new Error(`ネットワークに接続されていません。接続後に再度実施してください。`);
+    if (!gis.isOnline) throw new Error(`ネットワークに接続されていません。接続後に再度実施してください。`);
     if (!gis.accessToken) throw new Error(`トークンがないため認証不可。ログイン後に再度実施してください。`);
     const authOptions = {
       ...options,
@@ -237,7 +249,8 @@ gis.sendLog=async()=>{
   console.log(`[gis.sendLog] start`);
   const LOG_FILE = `${gis.appName}.log.json.txt`;
   try {
-    if (!navigator.onLine) throw new Error(`ネットワークに接続されていません。接続後に再度実施してください。`);
+    // if (!navigator.onLine) throw new Error(`ネットワークに接続されていません。接続後に再度実施してください。`);
+    if (!gis.isOnline) throw new Error(`ネットワークに接続されていません。接続後に再度実施してください。`);
     const user = await storage_info.get("user")
     if (!user) throw new Error(`ユーザ情報が存在しません。ログイン後に再度実施してください。`);
     const logText = await gis.makeLogArray()
@@ -373,10 +386,11 @@ gis.finish=async(token)=>{
 }
 
 // ログイン画面起動
-gis.login=(prompt='')=>{
+gis.login=async(prompt='')=>{
   gis.isProcessing = true;
     // console.log(`[gis.login] start prompt:${prompt}`);
-    if (!navigator.onLine) {
+    // if (!navigator.onLine) {
+    if (!gis.isOnline) {
       console.log(`[gis.login] ネットワークに接続されていません。`);
       gis.finish(null);
     }
@@ -437,7 +451,8 @@ gis.init=async(args={})=>{
   gis.clientId = args.clientId;
   gis.scope = args.scope;
   try {
-    if (!navigator.onLine) {
+    // if (!navigator.onLine) {
+    if (!gis.isOnline) {
       console.log(`[gis.init] ネットワークに接続されていません。直前までログインしていたアカウント情報を元にアプリを起動します。`);
       await gis.appEntry();
       gis.isProcessing = false;
@@ -1587,7 +1602,7 @@ const settings=async(args={})=>{
       console.log(`[settings] gis end`)
     }
   }
-  console.log(`Console.settings:${JSON.stringify(args)}, isWindow:${iswin}, isServiceWorker:${issw}, canBroadcastChannel:${canbcc}`)
+  console.log(`Console.settings:${JSON.stringify(args)}, isWindow:${iswin}, isServiceWorker:${issw}, canBroadcastChannel:${canbcc}, isOnline:${isOnline}`)
 }
 await settings(args)
 
@@ -1598,6 +1613,7 @@ await settings(args)
  */
 
 Object.assign(globalThis.Console,{
+  "online": isOnline,
   "datetime": getDateTime,
   "settings": settings,
   "storage": storage,
