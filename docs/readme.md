@@ -72,7 +72,7 @@ HTMLファイルで以下のように読み込みます。
 
 ## ストレージ機能 (Console.storage)
 
-`Console.storage` を通じて、IndexedDB（またはメモリ）へのデータの読み書きが可能です。
+`Console.storage` を通じて、メモリ・IndexedDB・GoogleDriveのマイドライブ直下のアプリ専用ファイルへのデータの読み書きが可能です。
 
 ```javascript
 (async()=>{
@@ -188,7 +188,7 @@ HTMLファイルで以下のように読み込みます。
 | `@dc` | キャッシュの削除 |  |
 | `@vs` | ストレージ内容の確認（JSON表示） |  |
 | `@ds` | ストレージ内容の削除 |  |
-| `@cl` | ログ表示モードの切替 (All / Service Worker / ブラウザ) |  |
+| `@cl` | ログ表示モードの切替 (All / Service Worker / Window) |  |
 | `@dl` | ログの消去 |  |
 | `@li` | Google ログインの実行 | Console.settings.gis設定時、かつログアウト状態のときに表示 |
 | `@lo` | Google ログアウト（トークンの失効とローカルデータの削除） | Console.settings.gis設定時、かつログイン状態のときに表示 |
@@ -210,7 +210,9 @@ JavaScript側から直接呼び出し可能な関数などの一例です。
 * `await Console.gis.logout()`: Google ログアウト処理を実行します。
 * `await Console.gis.sync()`: Google Drive との同期を実行します。
 * `await Console.gis.authfetch(url, options={})`: 認証情報を使ってfetchします。
-* `Console.gis.isProcessing`: 通信中/処理中であれば `true` を返します。
+
+## 注意事項
+自己責任でご利用ください。
 
 ## ライセンス
 MIT License  

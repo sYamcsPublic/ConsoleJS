@@ -1,6 +1,6 @@
 "use strict";
 globalThis.Console=async(args={})=>{
-const VERSION = "2.1.8"
+const VERSION = "2.1.9"
 const iswin = (typeof(window)!=="undefined")
 const issw  = (typeof(ServiceWorkerGlobalScope)!=="undefined")
 const canbcc = (typeof(globalThis.BroadcastChannel)!=="undefined")
@@ -13,6 +13,8 @@ const canbcc = (typeof(globalThis.BroadcastChannel)!=="undefined")
 
 const isOnline=await(async()=>{
   try {
+    if (typeof(Console)!=="undefined" && typeof(Console.online)==="boolean") return Console.online;
+    console.log(`iswin:${iswin}, issw:${issw}, online check...`);
     const url = "https://syamcspublic.github.io/ConsoleJS/ping";
     const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) return false;
