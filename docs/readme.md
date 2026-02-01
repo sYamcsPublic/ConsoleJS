@@ -192,7 +192,9 @@ HTMLファイルで以下のように読み込みます。
 | `@dl` | ログの消去 |  |
 | `@li` | Google ログインの実行 | Console.settings.gis設定時、かつログアウト状態のときに表示 |
 | `@lo` | Google ログアウト（トークンの失効とローカルデータの削除） | Console.settings.gis設定時、かつログイン状態のときに表示 |
-| `@sd` | Google Drive とのアプリデータ同期 | Console.settings.gis設定時、かつログイン状態のときに表示 |
+| `@rd` | Google Drive からアプリデータ受信 | Console.settings.gis設定時、かつログイン状態のときに表示 |
+| `@sd` | Google Drive へアプリデータ送信 | Console.settings.gis設定時、かつログイン状態のときに表示 |
+| `@sy` | Google Drive とのアプリデータ同期 | Console.settings.gis設定時、かつログイン状態のときに表示 |
 | `@sl` | Google Drive へ現在のログを送信 | Console.settings.gis設定時、かつログイン状態のときに表示 |
 | `@ra` | アプリのリロード |  |
 

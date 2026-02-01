@@ -1,6 +1,6 @@
 "use strict";
 globalThis.Console=async(args={})=>{
-const VERSION = "2.1.9"
+const VERSION = "2.1.10"
 const iswin = (typeof(window)!=="undefined")
 const issw  = (typeof(ServiceWorkerGlobalScope)!=="undefined")
 const canbcc = (typeof(globalThis.BroadcastChannel)!=="undefined")
@@ -295,7 +295,9 @@ gis.refreshInOut=async()=>{
   if (!settings.gis) {
     document.getElementById(`${p}divli`).classList.add(`${p}hide`)
     document.getElementById(`${p}divlo`).classList.add(`${p}hide`)
+    document.getElementById(`${p}divrd`).classList.add(`${p}hide`)
     document.getElementById(`${p}divsd`).classList.add(`${p}hide`)
+    document.getElementById(`${p}divsy`).classList.add(`${p}hide`)
     document.getElementById(`${p}divsl`).classList.add(`${p}hide`)
     return
   }
@@ -304,12 +306,16 @@ gis.refreshInOut=async()=>{
   if (userInfo) {
     document.getElementById(`${p}divli`).classList.add(`${p}hide`)
     document.getElementById(`${p}divlo`).classList.remove(`${p}hide`)
+    document.getElementById(`${p}divrd`).classList.remove(`${p}hide`)
     document.getElementById(`${p}divsd`).classList.remove(`${p}hide`)
+    document.getElementById(`${p}divsy`).classList.remove(`${p}hide`)
     document.getElementById(`${p}divsl`).classList.remove(`${p}hide`)
   } else {
     document.getElementById(`${p}divli`).classList.remove(`${p}hide`)
     document.getElementById(`${p}divlo`).classList.add(`${p}hide`)
+    document.getElementById(`${p}divrd`).classList.add(`${p}hide`)
     document.getElementById(`${p}divsd`).classList.add(`${p}hide`)
+    document.getElementById(`${p}divsy`).classList.add(`${p}hide`)
     document.getElementById(`${p}divsl`).classList.add(`${p}hide`)
   }
 }
@@ -328,7 +334,8 @@ gis.logout=async()=>{
       console.log(`[gis.logout] トークンを無効化します`);
       // google.accounts.oauth2.revoke は非同期ですが、完了を待たずに次に進んでも実用上の問題は少ないです
       google.accounts.oauth2.revoke(gis.accessToken, (done) => {
-        console.log(`[gis.logout] トークン無効化完了:`, done.error ? `Error: ${done.error}` : "Success");
+        const res = done.error ? `Error: ${done.error}` : `Success`;
+        console.log(`[gis.logout] トークン無効化完了: ${res}`);
       });
     }
 
@@ -1277,7 +1284,9 @@ document.body.insertAdjacentHTML("beforeend", String.raw`
       <div class="${p}str">&ensp;<span id="${p}cmddl" class="${p}cmd">@dl</span> delete log</div>
       <div id="${p}divli" class="${p}str">&ensp;<span id="${p}cmdli" class="${p}cmd">@li</span> google login</div>
       <div id="${p}divlo" class="${p}str ${p}hide">&ensp;<span id="${p}cmdlo" class="${p}cmd">@lo</span> google logout</div>
-      <div id="${p}divsd" class="${p}str ${p}hide">&ensp;<span id="${p}cmdsd" class="${p}cmd">@sd</span> sync data with google drive</div>
+      <div id="${p}divrd" class="${p}str ${p}hide">&ensp;<span id="${p}cmdrd" class="${p}cmd">@rd</span> recv data from google drive</div>
+      <div id="${p}divsd" class="${p}str ${p}hide">&ensp;<span id="${p}cmdsd" class="${p}cmd">@sd</span> send data to google drive</div>
+      <div id="${p}divsy" class="${p}str ${p}hide">&ensp;<span id="${p}cmdsy" class="${p}cmd">@sy</span> sync data with google drive</div>
       <div id="${p}divsl" class="${p}str ${p}hide">&ensp;<span id="${p}cmdsl" class="${p}cmd">@sl</span> send logs to google drive</div>
       <div class="${p}str">&ensp;<span id="${p}cmdra" class="${p}cmd">@ra</span> reload app</div>
       <div class="${p}str ${p}ver">${VERSION}&ensp;</div>
@@ -1521,7 +1530,46 @@ const addevents=async()=>{
             case "@lo":
               await gis.logout()
               break
+            case "@rd":
+              (async()=>{
+                try {
+                  const user = await storage_info.get("user");
+                  if (user.id) {
+                    console.log( "&ensp;<&ensp;" + "recv data start" )
+                    const driveTimeObj = await gis.readFile(`${gis.appName}.datetime.json.txt`);
+                    const driveDataObj = await gis.readFile(`${gis.appName}.data.json.txt`);
+                    await storage_app.set(user.id, {
+                      datetime: driveTimeObj.datetime,
+                      data: driveDataObj
+                    });
+                    console.log( "&ensp;<&ensp;" + "recv data end" )
+                  } else {
+                    console.log( "&ensp;<&ensp;" + "recv data error: user not found" )
+                  }
+                } catch(e) {
+                  console.log( "&ensp;<&ensp;" + "recv data error: " + JSON.stringify(e))
+                }
+              })()
+              break
             case "@sd":
+              (async()=>{
+                try {
+                  const user = await storage_info.get("user");
+                  if (user.id) {
+                    console.log( "&ensp;<&ensp;" + "send data start" )
+                    const localData = await storage_app.get(user.id);
+                    await gis.saveFile(`${gis.appName}.data.json.txt`, localData.data);
+                    await gis.saveFile(`${gis.appName}.datetime.json.txt`, { datetime: localData.datetime });
+                    console.log( "&ensp;<&ensp;" + "send data end" )
+                  } else {
+                    console.log( "&ensp;<&ensp;" + "send data error: user not found" )
+                  }
+                } catch(e) {
+                  console.log( "&ensp;<&ensp;" + "send data error: " + JSON.stringify(e))
+                }
+              })()
+              break
+            case "@sy":
               await gis.sync()
               break
             case "@sl":
