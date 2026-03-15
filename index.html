@@ -18,7 +18,7 @@
   (async () => {
 
     // global
-    const VERSION = "1.0.4";
+    const VERSION = "1.0.5";
     let kv = null;
 
     // get Content from GoogleDocument
@@ -204,10 +204,9 @@
       console.log(`[index.html domLoaded] start / version:${VERSION}`)
 
       // await Console.settings(); // 設定変更が不要ならsettings()の呼び出し自体が不要
-      await init(); // アプリ実装する際のエントリーポイントをinit()とした場合(任意の関数名でok)
+      // await init(); // gis利用なしでアプリ実装する際のエントリーポイントをinit()とした場合(任意の関数名でok)
 
-      // 以下はstorage&gis利用時のサンプル
-      /*
+      // 以下はstorage&gis利用ありの際のサンプル
       await Console.settings({ // 記憶領域の利用、gisの利用や表示位置/非表示にするなど、設定を変更するなら一度だけ呼び出し可能
         storage: true,
       })
