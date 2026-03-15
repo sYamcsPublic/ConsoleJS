@@ -189,7 +189,7 @@ HTMLファイルで以下のように読み込みます。
 | `@si {id}` | Google Client ID を設定（IDB保存） |  |
 | `@gs` | 現在設定されている Google Client Secret を表示 |  |
 | `@ss {sec}` | Google Client Secret を設定（IDB保存） |  |
-| `@li` | Google ログインの実行 | ログアウト状態のときに表示 |
+| `@li {appName}` | Google ログインの実行 | 引数にアプリ名を指定可能。省略時は前回指定時の値を使用。どちらも未指定時はエラー。ログアウト状態のときに表示。 |
 | `@lo` | Google ログアウト（トークンの失効とローカルデータの削除） | ログイン状態のときに表示 |
 | `@rd` | Google Drive からアプリデータ受信 | ログイン状態のときに表示 |
 | `@sd` | Google Drive へアプリデータ送信 | ログイン状態のときに表示 |

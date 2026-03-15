@@ -1,6 +1,6 @@
 "use strict";
 globalThis.Console = async (args = {}) => {
-  const VERSION = "3.0.0"
+  const VERSION = "3.0.1"
   const iswin = (typeof (window) !== "undefined")
   const issw = (typeof (ServiceWorkerGlobalScope) !== "undefined")
   const canbcc = (typeof (globalThis.BroadcastChannel) !== "undefined")
@@ -123,6 +123,8 @@ globalThis.Console = async (args = {}) => {
       const q = encodeURIComponent(`name = '${filename}' and 'root' in parents and trashed = false`);
       const res = await gis.authfetch(`https://www.googleapis.com/drive/v3/files?q=${q}`);
       const json = await res.json();
+      console.log("filename:" + filename)
+      console.log("json.files:" + JSON.stringify(json.files))
       return json.files && json.files.length > 0 ? json.files[0].id : null;
     } catch (e) {
       throw e;
@@ -300,7 +302,7 @@ globalThis.Console = async (args = {}) => {
 
     // ログインボタン: 未ログインなら表示
     toggle('divli', !isLoggedIn)
-    
+
     // ログアウト・同期関連ボタン: クライアントID/シークレットがあり、かつログイン済みなら表示
     const showAuthTools = hasCredentials && isLoggedIn
     toggle('divlo', showAuthTools)
@@ -319,7 +321,7 @@ globalThis.Console = async (args = {}) => {
     try {
       // 1. アプリ内の状態をクリア
       gis.accessToken = null;
-      await storage_info.delete("refresh_token")
+      await storage_info.delete("refreshToken")
       if (typeof storage !== 'undefined') {
         await storage.delete(".user");
       }
@@ -488,12 +490,13 @@ globalThis.Console = async (args = {}) => {
         console.log(`[gis.handleRedirectCallback] トークン交換エラー: ${data.error} - ${data.error_description}`)
         return false
       }
-      if (data.refresh_token) {
-        await storage_info.set("refresh_token", data.refresh_token)
+      if (data.refreshToken) {
+        await storage_info.set("refreshToken", data.refreshToken)
         console.log(`[gis.handleRedirectCallback] リフレッシュトークンを保存しました。`)
       }
       if (data.access_token) {
         console.log(`[gis.handleRedirectCallback] アクセストークン取得成功。`)
+        gis.appName = await storage.get(".appName")
         if (gis.appEntry) {
           await gis.finish(data.access_token)
         } else {
@@ -515,15 +518,15 @@ globalThis.Console = async (args = {}) => {
 
   // リフレッシュトークンによるアクセストークン再取得
   gis.tryRefresh = async () => {
-    const refreshToken = await storage_info.get("refresh_token")
+    const refreshToken = await storage_info.get("refreshToken")
     if (!refreshToken) return false
     try {
       const clientId = await gis.getClientId()
       const clientSecret = await gis.getClientSecret()
       const bodyParams = {
         client_id: clientId,
-        refresh_token: refreshToken,
-        grant_type: "refresh_token",
+        refreshToken: refreshToken,
+        grant_type: "refreshToken",
       }
       if (clientSecret) bodyParams.client_secret = clientSecret
       const res = await fetch("https://oauth2.googleapis.com/token", {
@@ -535,10 +538,11 @@ globalThis.Console = async (args = {}) => {
       if (data.access_token) {
         gis.accessToken = data.access_token
         console.log(`[gis.tryRefresh] アクセストークンの更新に成功しました。`)
+        gis.appName = await storage.get(".appName")
         return true
       } else {
         console.log(`[gis.tryRefresh] アクセストークンの更新に失敗しました。: ${JSON.stringify(data)}`)
-        await storage_info.delete("refresh_token")
+        await storage_info.delete("refreshToken")
         return false
       }
     } catch (e) {
@@ -552,7 +556,10 @@ globalThis.Console = async (args = {}) => {
   // args.appEntry: ログイン成功時に呼び出すコールバック関数
   // args.scopes: 追加スコープ配列（省略可）
   gis.loginRequest = async (args = {}) => {
-    if (args.appName) gis.appName = args.appName
+    if (args.appName) {
+      await storage.set(".appName", args.appName)
+      gis.appName = args.appName
+    }
     if (args.appEntry) gis.appEntry = args.appEntry
     const additionalScopes = args.scopes || []
     await gis.loginWithRedirect(additionalScopes)
@@ -1023,28 +1030,27 @@ globalThis.Console = async (args = {}) => {
         userobj["datetime"] = (userobj["@"]) ? userobj["@"] : getDateTime()
         delete userobj["@"]
         appobj[userid] = { ...userobj }
-          appobj[userid] = { ...userobj }
-          await storage_app(appobj)
-          break
-      }
-      return res
+        await storage_app(appobj)
+        break
     }
-    const bcc = new BroadcastChannel("login_channel")
-    bcc.onmessage = async (ev) => {
-      // console.log(`[bcc.onmessage] ev.data: ${ev.data}`);
-      if (ev.data === "login_complete") {
-        console.log(`[bcc.onmessage] 他のタブでログインが完了しました。リフレッシュします。`);
-        await gis.tryRefresh();
-        await gis.refreshInOut();
-        // appEntryが設定されている場合は、ログイン後の状態にするために再実行
-        if (gis.appEntry) await gis.finish(gis.accessToken);
-      }
-      if (ev.data === "logout_complete") {
-        console.log(`[bcc.onmessage] 他のタブでログアウトされました。`);
-        await gis.logout();
-      }
+    return res
+  }
+  const bcc = new BroadcastChannel("login_channel")
+  bcc.onmessage = async (ev) => {
+    // console.log(`[bcc.onmessage] ev.data: ${ev.data}`);
+    if (ev.data === "login_complete") {
+      console.log(`[bcc.onmessage] 他のタブでログインが完了しました。リフレッシュします。`);
+      await gis.tryRefresh();
+      await gis.refreshInOut();
+      // appEntryが設定されている場合は、ログイン後の状態にするために再実行
+      if (gis.appEntry) await gis.finish(gis.accessToken);
     }
-    storagedict.getsAll = async () => {
+    if (ev.data === "logout_complete") {
+      console.log(`[bcc.onmessage] 他のタブでログアウトされました。`);
+      await gis.logout();
+    }
+  }
+  storagedict.getsAll = async () => {
     const obj_app = await storage_app()
     const obj_info = await storage_info()
     const obj_logsw = await storage_logsw()
@@ -1350,7 +1356,7 @@ globalThis.Console = async (args = {}) => {
       <div class="${p}str">&ensp;<span id="${p}cmdsi" class="${p}cmd">@si</span> set client id</div>
       <div class="${p}str">&ensp;<span id="${p}cmdgs" class="${p}cmd">@gs</span> get client secret</div>
       <div class="${p}str">&ensp;<span id="${p}cmdss" class="${p}cmd">@ss</span> set client secret</div>
-      <div id="${p}divli" class="${p}str">&ensp;<span id="${p}cmdli" class="${p}cmd">@li</span> google login</div>
+      <div id="${p}divli" class="${p}str">&ensp;<span id="${p}cmdli" class="${p}cmd">@li {appName}</span> google login</div>
       <div id="${p}divlo" class="${p}str ${p}hide">&ensp;<span id="${p}cmdlo" class="${p}cmd">@lo</span> google logout</div>
       <div id="${p}divrd" class="${p}str ${p}hide">&ensp;<span id="${p}cmdrd" class="${p}cmd">@rd</span> recv data from google drive</div>
       <div id="${p}divsd" class="${p}str ${p}hide">&ensp;<span id="${p}cmdsd" class="${p}cmd">@sd</span> send data to google drive</div>
@@ -1604,9 +1610,7 @@ globalThis.Console = async (args = {}) => {
                   console.log(`&ensp;<&ensp;client secret: ${val ? truncateText(val, 8) + "..." : "(not set)"}`)
                 })()
                 break
-              case "@li":
-                await gis.loginWithRedirect()
-                break
+
               case "@lo":
                 await gis.logout()
                 break
@@ -1661,7 +1665,22 @@ globalThis.Console = async (args = {}) => {
                 location.reload(true)
                 break
               default:
-                if (input.startsWith("@si ")) {
+                if (input === "@li" || input.startsWith("@li ")) {
+                  let appName = input === "@li" ? "" : input.slice(4).trim()
+                  if (appName) {
+                    await storage.set(".appName", appName)
+                    gis.appName = appName
+                  } else {
+                    appName = await storage.get(".appName")
+                    if (appName) {
+                      gis.appName = appName
+                    } else {
+                      console.log("&ensp;<&ensp;エラー: appName が指定されていません。\"@li {appName}\" の形式で入力してください。")
+                      break
+                    }
+                  }
+                  await gis.loginWithRedirect()
+                } else if (input.startsWith("@si ")) {
                   const val = input.slice(4).trim()
                   if (val) {
                     await gis.setClientId(val)
@@ -1729,6 +1748,7 @@ globalThis.Console = async (args = {}) => {
         delete globalThis[storageName]
       }
     }
+    gis.appName = await storage.get(".appName")
     if (iswin) {
       args.show = (typeof (args.show) !== "undefined") ? args.show : true
       args.pos = (typeof (args.pos) !== "undefined") ? args.pos : "right-bottom" //"right-bottom"(default), "right-top", "left-bottom", "left-top"
