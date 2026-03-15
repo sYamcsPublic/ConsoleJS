@@ -55,17 +55,12 @@ HTMLファイルで以下のように読み込みます。
   await Console.promise;  // ライブラリの初期化完了を待機 (以下の設定や他機能を利用するのであれば必須、ボタン表示のみ希望であれば不要)
   await Console.settings({
     storage: true,             // trueでIndexedDBを使用、falseで一時メモリ (任意 省略時はfalse)
+    shared: true,              // trueでドメイン全体(ルート)でデータを共有、falseで現在のディレクトリ内でのみ共有 (任意 省略時はfalse)
+                               // 同一ドメイン内の異なるディレクトリに配置した複数アプリ間でGoogleログイン状態を共有したい場合にtrueにします。
     show: true,                // 右下の「＋」ボタンを表示するか (任意 省略時はtrue)
     pos: "right-bottom",       // ボタン位置 (right-top, left-bottom 等) (任意 省略時はright-bottom)
     posx: 65,                  // ボタン位置横補正 (px単位) (任意 省略時は0)
     posy: 65,                  // ボタン位置縦補正 (px単位) (任意 省略時は0)
-    gis: {  // 利用は任意 (省略時はundefined)
-      appName: "MyWebApp",     // Google Drive上のファイル名に使用 (gis利用時は必須)
-      appEntry: initApp,       // ログイン完了後に実行されるエントリーポイント (gis利用時は必須)
-      isUseLoginDisp: true,    // アプリで実装したログイン画面の起動時に利用可否(任意 省略時はfalse)
-      clientId: "YOUR_CLIENT_ID.apps.googleusercontent.com", // GCPで取得したクライアントID(gis利用時は必須)
-      scope: "https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.profile" // GCPで取得したクライアントIDのスコープ(任意 省略時は左記の値)
-    }
   });
 })();
 ```
@@ -190,12 +185,16 @@ HTMLファイルで以下のように読み込みます。
 | `@ds` | ストレージ内容の削除 |  |
 | `@cl` | ログ表示モードの切替 (All / Service Worker / Window) |  |
 | `@dl` | ログの消去 |  |
-| `@li` | Google ログインの実行 | Console.settings.gis設定時、かつログアウト状態のときに表示 |
-| `@lo` | Google ログアウト（トークンの失効とローカルデータの削除） | Console.settings.gis設定時、かつログイン状態のときに表示 |
-| `@rd` | Google Drive からアプリデータ受信 | Console.settings.gis設定時、かつログイン状態のときに表示 |
-| `@sd` | Google Drive へアプリデータ送信 | Console.settings.gis設定時、かつログイン状態のときに表示 |
-| `@sy` | Google Drive とのアプリデータ同期 | Console.settings.gis設定時、かつログイン状態のときに表示 |
-| `@sl` | Google Drive へ現在のログを送信 | Console.settings.gis設定時、かつログイン状態のときに表示 |
+| `@gi` | 現在設定されている Google Client ID を表示 |  |
+| `@si {id}` | Google Client ID を設定（IDB保存） |  |
+| `@gs` | 現在設定されている Google Client Secret を表示 |  |
+| `@ss {sec}` | Google Client Secret を設定（IDB保存） |  |
+| `@li` | Google ログインの実行 | ログアウト状態のときに表示 |
+| `@lo` | Google ログアウト（トークンの失効とローカルデータの削除） | ログイン状態のときに表示 |
+| `@rd` | Google Drive からアプリデータ受信 | ログイン状態のときに表示 |
+| `@sd` | Google Drive へアプリデータ送信 | ログイン状態のときに表示 |
+| `@sy` | Google Drive とのアプリデータ同期 | ログイン状態のときに表示 |
+| `@sl` | Google Drive へ現在のログを送信 | ログイン状態のときに表示 |
 | `@ra` | アプリのリロード |  |
 
 ## 公開API
@@ -208,10 +207,35 @@ JavaScript側から直接呼び出し可能な関数などの一例です。
 * `Console.storage`: ストレージ操作関数群を保有するオブジェクトです。
 * `Console.online`: 起動時のオンライン・オフラインを表すプロパティです。
 * `Console.datetime()`: 関数呼び出し時の日時をコンソールに出力しているフォーマットで返します。
-* `Console.gis.login()`: Google ログイン画面を起動します。
+* `await Console.gis.getClientId()`: 設定されているクライアントIDを取得します。
+* `await Console.gis.setClientId(id)`: クライアントIDを設定・保存します。
+* `await Console.gis.getClientSecret()`: 設定されているクライアントシークレットを取得します。
+* `await Console.gis.setClientSecret(secret)`: クライアントシークレットを設定・保存します。
+* `await Console.gis.loginRequest({ appName, appEntry })`: Google ログインを開始します。`appName`はDrive保存ファイル名、`appEntry`はログイン成功後の実行関数です。
 * `await Console.gis.logout()`: Google ログアウト処理を実行します。
 * `await Console.gis.sync()`: Google Drive との同期を実行します。
 * `await Console.gis.authfetch(url, options={})`: 認証情報を使ってfetchします。
+
+## Google Cloud プロジェクトの作成と設定方法
+
+Google Drive 同期機能や Google ドキュメントの読み込み機能を利用するには、Google Cloud Console でプロジェクトを作成し、OAuth 2.0 クライアント ID を取得する必要があります。
+
+1. **プロジェクトの作成**: [Google Cloud Console](https://console.cloud.google.com/) にアクセスし、プロジェクトを選択または新規作成します。
+2. **API の有効化**: 「API とサービス > 有効な API とサービス」から、以下の API を検索して有効化します。
+   - `Google Drive API`
+   - `Google Docs API` (ドキュメントの読み込み機能等を利用する場合)
+3. **OAuth 同意画面の設定**:
+   - 「外部」を選択。
+   - スコープに `.../auth/drive.file` (必須：アプリが作成したファイルへのアクセス) や、必要に応じて `.../auth/drive.readonly` や `.../auth/documents.readonly` を追加します。
+   - 公開ステータスを「テスト」から「アプリを公開」に変更（あるいはテストユーザーに自分のアドレスを追加）。
+4. **認証情報の作成 (OAuth 2.0 クライアント ID)**:
+   - 「API とサービス > 認証情報」を開きます。
+   - 「認証情報を作成 > OAuth クライアント ID」を選択します。
+   - **アプリケーションの種類**: `ウェブ アプリケーション`
+   - **名前**: 任意（例: `ConsoleJS Client`）
+   - **承認済みの JavaScript 生成元**: アプリを表示するURL（例: `http://localhost:5173` や `https://your-domain.com`）を入力します。
+   - **承認済みのリダイレクト URI**: アプリを表示するURL（例: `http://localhost:5173/` ※末尾の `/` が重要）。
+5. **ID とシークレットの取得**: 作成後に表示される **クライアント ID** と **クライアント シークレット** を控えます。これらをコンソールの `@si` および `@ss` コマンドで設定することで連携が可能になります。
 
 ## 注意事項
 自己責任でご利用ください。

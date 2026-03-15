@@ -7,247 +7,249 @@
     content="width=device-width, initial-scale=1.0, viewport-fit=cover, shrink-to-fit=no, user-scalable=no">
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" href="./icon.png">
-  <title>ConsoleJS-Test</title> <!-- //sYamcsPublic-sample側: 'ConsoleJS-Sample'-->
+  <title>ConsoleJS-Sample</title>
 </head>
 
 <body width="0px" height="0px" style="margin:0"></body>
 <!-- <script defer src="https://syamcspublic.github.io/ConsoleJS/Console.js"></script> -->
 <script defer src="./Console.js"></script>
-<script>navigator.serviceWorker.register("./sw.js")</script> <!-- //sYamcsPublic-sample側: コメント化 -->
+<!-- <script>navigator.serviceWorker.register("./sw.js")</script> -->
 <script>
-    (async () => {
+  (async () => {
 
-      // global
-      const VERSION = "1.0.4";
-      let kv = null;
+    // global
+    const VERSION = "1.0.4";
+    let kv = null;
 
-      // get Content from GoogleDocument
-      const getContent = async (id) => {
-        try {
-          const url = `https://www.googleapis.com/drive/v3/files/${id}/export?mimeType=text/plain`;
-          const resp = await Console.gis.authfetch(url);
-          if (!resp.ok) return null;
-          return await resp.text();
-        } catch (e) {
-          throw e;
+    // get Content from GoogleDocument
+    const getContent = async (id) => {
+      try {
+        const url = `https://www.googleapis.com/drive/v3/files/${id}/export?mimeType=text/plain`;
+        const resp = await Console.gis.authfetch(url);
+        if (!resp.ok) return null;
+        return await resp.text();
+      } catch (e) {
+        throw e;
+      }
+    }
+
+    // sample
+    const sample = async () => {
+      console.log(`[index.html sample] start`)
+
+      await kv.set("userTxt1", "userTxtValue1")
+      const userTxt1 = await kv.get("userTxt1")
+      console.log(`[index.html sample] userTxt1:${userTxt1}`)
+
+      await kv.set("userTxt2", "userTxtValue2")
+      const userTxt2 = await kv.get("userTxt2")
+      console.log(`[index.html sample] userTxt2:${userTxt2}`)
+
+      await kv.set("userObj", {
+        "key1": "value1",
+        "key2": {
+          "key21": "value21"
         }
+      })
+      const userObj = await kv.get("userObj")
+      console.log(`[index.html sample] userObj type:${typeof (userObj)}`)
+      console.log(`[index.html sample] userObj:${JSON.stringify(userObj)}`)
+
+      const keysBefore = await kv.keys()
+      console.log(`[index.html sample] keysBefore:${JSON.stringify(keysBefore)}`)
+
+      const keysAndValuesBefore = await kv.gets()
+      console.log(`[index.html sample] keysAndValuesBefore:${JSON.stringify(keysAndValuesBefore)}`)
+
+      await kv.delete("userTxt1")
+      console.log(`[index.html sample] userTxt1 delete`)
+
+      const keysAfter = await kv.keys()
+      console.log(`[index.html sample] keysAfter:${JSON.stringify(keysAfter)}`)
+
+      const keysAndValuesAfter = await kv.gets()
+      console.log(`[index.html sample] keysAndValuesAfter:${JSON.stringify(keysAndValuesAfter)}`)
+
+      const userinfo = await kv.get(".user");
+      console.log(`[index.html sample] userinfo:${(userinfo) ? JSON.stringify(userinfo) : userinfo}`)
+
+      const docid = "xxxxxx"; // GoogleDocumentのドキュメントID
+      try {
+        const content = await getContent(docid);
+        console.log(`[index.html sample] getContent success content: ${content}`)
+      } catch (e) {
+        console.log(`[index.html sample] getContent error: ${e}`)
       }
 
-      // sample
-      const sample = async () => {
-        console.log(`[index.html sample] start`)
+      console.log(`[index.html sample] isProcessing:${Console.gis.isProcessing}`)
+      console.log(`[index.html sample] end`)
+    }
 
-        await kv.set("userTxt1", "userTxtValue1")
-        const userTxt1 = await kv.get("userTxt1")
-        console.log(`[index.html sample] userTxt1:${userTxt1}`)
+    // readme
+    const readme = async () => {
+      console.log(`[index.html readme] start`)
 
-        await kv.set("userTxt2", "userTxtValue2")
-        const userTxt2 = await kv.get("userTxt2")
-        console.log(`[index.html sample] userTxt2:${userTxt2}`)
+      console.log(`データの保存（自動的に保存日時が内部に記録されます）`)
+      await kv.set("key1", "text");
+      await kv.set("key2", 100);
+      await kv.set("key3", { name: "text", value: 100 });
 
-        await kv.set("userObj", {
-          "key1": "value1",
-          "key2": {
-            "key21": "value21"
-          }
-        })
-        const userObj = await kv.get("userObj")
-        console.log(`[index.html sample] userObj type:${typeof (userObj)}`)
-        console.log(`[index.html sample] userObj:${JSON.stringify(userObj)}`)
+      console.log(`データの取得`)
+      const value1 = await kv.get("key1");
+      const value2 = await kv.get("key2");
+      const value3 = await kv.get("key3");
+      console.log(`value1:${value1}, value2:${value2}, value3:${JSON.stringify(value3)}`)
 
-        const keysBefore = await kv.keys()
-        console.log(`[index.html sample] keysBefore:${JSON.stringify(keysBefore)}`)
+      console.log(`キーの接頭辞による分類`)
+      await kv.set(".infoData", "value2"); const settings = await kv.get(".infoData"); // "."開始：システム情報 (info領域) ※機能としては作成しているが、挙動が不安定になる可能性がある利用には注意
+      await kv.set("_commonData", "value3"); const commonData = await kv.get("_commonData"); // "_"開始：ユーザーを問わない共通データ (common領域)
+      await kv.set("userData", "value4"); const userData = await kv.get("userData"); // 接頭辞なし：ログインしている場合はユーザー別の領域、ログインしていない場合はguest領域
 
-        const keysAndValuesBefore = await kv.gets()
-        console.log(`[index.html sample] keysAndValuesBefore:${JSON.stringify(keysAndValuesBefore)}`)
+      console.log(`各領域の保存日時を取得`)
+      const datetimeInfo = await kv.get(".@"); // info領域
+      const datetimeCommon = await kv.get("_@"); // common領域
+      const datetimeUser = await kv.get("@"); // user/guest領域
+      console.log(`datetime info:${datetimeInfo}, common:${datetimeCommon}, user:${datetimeUser}`)
 
-        await kv.delete("userTxt1")
-        console.log(`[index.html sample] userTxt1 delete`)
+      console.log(`[欄外]各領域の保存日時を強制設定`)
+      await kv.set("@", "3037-14-56T87:65:43.217"); // user/guest領域
+      const datetimeUserAf = await kv.get("@"); // user/guest領域
+      await kv.set("_@", "4037-14-56T87:65:43.218"); // common領域
+      const datetimeCommonAf = await kv.get("_@"); // common領域
+      await kv.set(".@", "5037-14-56T87:65:43.219"); // info領域
+      const datetimeInfoAf = await kv.get(".@"); // info領域
+      console.log(`datetime info:${datetimeInfoAf}, common:${datetimeCommonAf}, user:${datetimeUserAf}`)
+      console.log(`※info領域は強制設定後に実時間で処理が正しい値に上書きする仕様`)
 
-        const keysAfter = await kv.keys()
-        console.log(`[index.html sample] keysAfter:${JSON.stringify(keysAfter)}`)
+      console.log(`データの一括取得`)
+      console.log(`"^"でdrive領域から取得が可能、省略時は""(user/guest領域)扱い`)
+      const driveDatas = await kv.gets("^"); // drive領域
+      console.log(`driveDatas:${JSON.stringify(driveDatas)}`)
+      const infoDatas = await kv.gets("."); // info領域
+      console.log(`infoDatas:${JSON.stringify(infoDatas)}`)
+      const commonDatas = await kv.gets("_"); // common領域
+      console.log(`commonDatas:${JSON.stringify(commonDatas)}`)
+      const userDatas = await kv.gets(""); // user/guest領域
+      console.log(`userDatas:${JSON.stringify(userDatas)}`)
 
-        const keysAndValuesAfter = await kv.gets()
-        console.log(`[index.html sample] keysAndValuesAfter:${JSON.stringify(keysAndValuesAfter)}`)
+      /*
+          console.log(`データの一括設定`)
+          console.log(`"^"でdrive領域への設定が可能、省略時は""(user/guest領域)扱い`)
+          console.log(`※一括設定時に指定するオブジェクトの最も浅いキーへの各領域の接頭辞付与は任意(付与していたら保存時に先頭一文字を自動削除する)`)
+          console.log(`@キーで保存日時を強制設定することも可能。@キーで指定しなければ処理時間で自動設定する。`)
+          await kv.sets("^", {  // drive領域
+            // "@": "3026-34-56T78:90:12.345", // user/common/info領域と同様に指定は任意
+            driveKey1: "driveValue1",
+            driveKey2: 200,
+            driveKey3: {
+              name: "foo", value: 200
+            },
+          });
+          // await kv.sets(".", {  // info領域 ※機能としては作成しているが、挙動が不安定になる可能性がある利用には注意
+          //   "@": "3026-34-56T78:90:12.345",
+          //   infoKey1: "infoValue1",
+          //   infoKey2: 300,
+          //   infoKey3: {
+          //     name: "bar", value: 300
+          //   },
+          // });
+          await kv.sets("_", {  // common領域
+            "@": "3026-34-56T78:90:12.345", // "@"キーで強制的に保存日時を指定することが可能
+            commonKey1: "commonValue1",
+            commonKey2: 400,
+            commonKey3: {
+              name: "biz", value: 400
+            },
+          });
+          await kv.sets("", {  // user/guest領域
+            // "@": "3026-34-56T78:90:12.345", // "@"キーを省略すると処理日時が自動的に保存される
+            userKey1: "userValue1",
+            userKey2: 500,
+            userKey3: {
+              name: "qux", value: 500
+            },
+          });
+      */
 
-        const userinfo = await kv.get(".user");
-        console.log(`[index.html sample] userinfo:${(userinfo) ? JSON.stringify(userinfo) : userinfo}`)
+      console.log(`キー一覧の取得`)
+      console.log(`"^"でdrive領域から取得が可能、省略時は""(user/guest領域)扱い`)
+      const driveKeys = await kv.keys("^"); // drive領域
+      console.log(`driveKeys:${JSON.stringify(driveKeys)}`) // driveKeys:["^@","^driveKey1","^driveKey2","^driveKey3"]
+      const infoKeys = await kv.keys("."); // info領域
+      console.log(`infoKeys:${JSON.stringify(infoKeys)}`) // infoKeys:[".@",".datetime",".infoData",".settings",".user"]
+      const commonKeys = await kv.keys("_"); // common領域
+      console.log(`commonKeys:${JSON.stringify(commonKeys)}`) // commonKeys:["_@","_commonKey1","_commonKey2","_commonKey3"]
+      const userKeys = await kv.keys(""); // user/guest領域
+      console.log(`userKeys:${JSON.stringify(userKeys)}`) // userKeys:["@","userKey1","userKey2","userKey3"]
 
-        const docid = "19w3act4JBOvUgW9pTuSbo1rYXjESfum8gl4IKBel8N4"; // GoogleDocumentのドキュメントID //sYamcsPublic-sample側: マスクする
-        try {
-          const content = await getContent(docid);
-          console.log(`[index.html sample] getContent success content: ${content}`)
-        } catch (e) {
-          console.log(`[index.html sample] getContent error: ${e}`)
-        }
+      console.log(`ログインユーザ情報の取得`)
+      const userinfo = await kv.get(".user");
+      console.log(`userinfo:${(userinfo) ? JSON.stringify(userinfo) : userinfo}`)
 
-        console.log(`[index.html sample] isProcessing:${Console.gis.isProcessing}`)
-        console.log(`[index.html sample] end`)
-      }
+      console.log(`[index.html readme] end`)
+    }
 
-      // readme
-      const readme = async () => {
-        console.log(`[index.html readme] start`)
+    // entry point
+    const init = async () => {
+      console.log(`[index.html init] start`)
+      await kv.set("_veridx", VERSION)
+      await readme()
+      await sample()
+      console.log(`[index.html init] end`)
+    }
 
-        console.log(`データの保存（自動的に保存日時が内部に記録されます）`)
-        await kv.set("key1", "text");
-        await kv.set("key2", 100);
-        await kv.set("key3", { name: "text", value: 100 });
+    // ready
+    window.addEventListener("DOMContentLoaded", async () => {
+      await Console.promise; kv = Console.storage;
+      console.log(`[index.html domLoaded] start / version:${VERSION}`)
 
-        console.log(`データの取得`)
-        const value1 = await kv.get("key1");
-        const value2 = await kv.get("key2");
-        const value3 = await kv.get("key3");
-        console.log(`value1:${value1}, value2:${value2}, value3:${JSON.stringify(value3)}`)
+      // await Console.settings(); // 設定変更が不要ならsettings()の呼び出し自体が不要
+      await init(); // アプリ実装する際のエントリーポイントをinit()とした場合(任意の関数名でok)
 
-        console.log(`キーの接頭辞による分類`)
-        await kv.set(".infoData", "value2"); const settings = await kv.get(".infoData"); // "."開始：システム情報 (info領域) ※機能としては作成しているが、挙動が不安定になる可能性がある利用には注意
-        await kv.set("_commonData", "value3"); const commonData = await kv.get("_commonData"); // "_"開始：ユーザーを問わない共通データ (common領域)
-        await kv.set("userData", "value4"); const userData = await kv.get("userData"); // 接頭辞なし：ログインしている場合はユーザー別の領域、ログインしていない場合はguest領域
-
-        console.log(`各領域の保存日時を取得`)
-        const datetimeInfo = await kv.get(".@"); // info領域
-        const datetimeCommon = await kv.get("_@"); // common領域
-        const datetimeUser = await kv.get("@"); // user/guest領域
-        console.log(`datetime info:${datetimeInfo}, common:${datetimeCommon}, user:${datetimeUser}`)
-
-        console.log(`[欄外]各領域の保存日時を強制設定`)
-        await kv.set("@", "3037-14-56T87:65:43.217"); // user/guest領域
-        const datetimeUserAf = await kv.get("@"); // user/guest領域
-        await kv.set("_@", "4037-14-56T87:65:43.218"); // common領域
-        const datetimeCommonAf = await kv.get("_@"); // common領域
-        await kv.set(".@", "5037-14-56T87:65:43.219"); // info領域
-        const datetimeInfoAf = await kv.get(".@"); // info領域
-        console.log(`datetime info:${datetimeInfoAf}, common:${datetimeCommonAf}, user:${datetimeUserAf}`)
-        console.log(`※info領域は強制設定後に実時間で処理が正しい値に上書きする仕様`)
-
-        console.log(`データの一括取得`)
-        console.log(`"^"でdrive領域から取得が可能、省略時は""(user/guest領域)扱い`)
-        const driveDatas = await kv.gets("^"); // drive領域
-        console.log(`driveDatas:${JSON.stringify(driveDatas)}`)
-        const infoDatas = await kv.gets("."); // info領域
-        console.log(`infoDatas:${JSON.stringify(infoDatas)}`)
-        const commonDatas = await kv.gets("_"); // common領域
-        console.log(`commonDatas:${JSON.stringify(commonDatas)}`)
-        const userDatas = await kv.gets(""); // user/guest領域
-        console.log(`userDatas:${JSON.stringify(userDatas)}`)
-
-        /*
-            console.log(`データの一括設定`)
-            console.log(`"^"でdrive領域への設定が可能、省略時は""(user/guest領域)扱い`)
-            console.log(`※一括設定時に指定するオブジェクトの最も浅いキーへの各領域の接頭辞付与は任意(付与していたら保存時に先頭一文字を自動削除する)`)
-            console.log(`@キーで保存日時を強制設定することも可能。@キーで指定しなければ処理時間で自動設定する。`)
-            await kv.sets("^", {  // drive領域
-              // "@": "3026-34-56T78:90:12.345", // user/common/info領域と同様に指定は任意
-              driveKey1: "driveValue1",
-              driveKey2: 200,
-              driveKey3: {
-                name: "foo", value: 200
-              },
-            });
-            // await kv.sets(".", {  // info領域 ※機能としては作成しているが、挙動が不安定になる可能性がある利用には注意
-            //   "@": "3026-34-56T78:90:12.345",
-            //   infoKey1: "infoValue1",
-            //   infoKey2: 300,
-            //   infoKey3: {
-            //     name: "bar", value: 300
-            //   },
-            // });
-            await kv.sets("_", {  // common領域
-              "@": "3026-34-56T78:90:12.345", // "@"キーで強制的に保存日時を指定することが可能
-              commonKey1: "commonValue1",
-              commonKey2: 400,
-              commonKey3: {
-                name: "biz", value: 400
-              },
-            });
-            await kv.sets("", {  // user/guest領域
-              // "@": "3026-34-56T78:90:12.345", // "@"キーを省略すると処理日時が自動的に保存される
-              userKey1: "userValue1",
-              userKey2: 500,
-              userKey3: {
-                name: "qux", value: 500
-              },
-            });
-        */
-
-        console.log(`キー一覧の取得`)
-        console.log(`"^"でdrive領域から取得が可能、省略時は""(user/guest領域)扱い`)
-        const driveKeys = await kv.keys("^"); // drive領域
-        console.log(`driveKeys:${JSON.stringify(driveKeys)}`) // driveKeys:["^@","^driveKey1","^driveKey2","^driveKey3"]
-        const infoKeys = await kv.keys("."); // info領域
-        console.log(`infoKeys:${JSON.stringify(infoKeys)}`) // infoKeys:[".@",".datetime",".infoData",".settings",".user"]
-        const commonKeys = await kv.keys("_"); // common領域
-        console.log(`commonKeys:${JSON.stringify(commonKeys)}`) // commonKeys:["_@","_commonKey1","_commonKey2","_commonKey3"]
-        const userKeys = await kv.keys(""); // user/guest領域
-        console.log(`userKeys:${JSON.stringify(userKeys)}`) // userKeys:["@","userKey1","userKey2","userKey3"]
-
-        console.log(`ログインユーザ情報の取得`)
-        const userinfo = await kv.get(".user");
-        console.log(`userinfo:${(userinfo) ? JSON.stringify(userinfo) : userinfo}`)
-
-        console.log(`[index.html readme] end`)
-      }
-
-      // entry point
-      const init = async () => {
-        console.log(`[index.html init] start`)
-        await kv.set("_veridx", VERSION)
-        await readme()
-        await sample()
-        console.log(`[index.html init] end`)
-      }
-
-      // ready
-      window.addEventListener("DOMContentLoaded", async () => {
-        await Console.promise; kv = Console.storage;
-        console.log(`[index.html domLoaded] start / version:${VERSION}`)
-
-        // await Console.settings(); // 設定変更が不要ならsettings()の呼び出し自体が不要
-        // await init(); // アプリ実装する際のエントリーポイントをinit()とした場合(任意の関数名でok) //sYamcsPublic-sample側: コメント化解除
-
-        // 以下はstorage&gis利用時のサンプル //sYamcsPublic-sample側: コメント化
-        await Console.settings({ // 記憶領域の利用、gisの利用や表示位置/非表示にするなど、設定を変更するなら一度だけ呼び出し可能
-          storage: true,
-        })
-
-        // Googleログイン状態に応じた初期化フローのサンプル
-        // 1. ログイン済み（ユーザー情報が存在する）か確認
-        const user = await kv.get(".user")
-        if (user) {
-          // すでにログイン済みの場合は、そのままアプリのエントリーポイント（init）を実行
-          await init()
-        } else {
-          // 2. 未ログインの場合は、認証情報の設定とログイン処理を開始
-          // ※実運用アプリでは prompt ではなく独自の設定画面などで入力させる構成が一般的です
-
-          // 現在設定されているクライアントIDを取得（あればプロンプトに表示）
-          const currentId = await Console.gis.getClientId()
-          const clientId = prompt("Google Client ID を入力してください", currentId)
-
-          if (clientId) {
-            await Console.gis.setClientId(clientId)
-
-            // 同様にクライアントシークレットも設定
-            const currentSecret = await Console.gis.getClientSecret()
-            const clientSecret = prompt("Google Client Secret を入力してください", currentSecret)
-
-            if (clientSecret) {
-              await Console.gis.setClientSecret(clientSecret)
-
-              // 3. アプリ情報とエントリーポイントを指定して、Googleログイン画面へリダイレクト
-              await Console.gis.loginRequest({
-                appName: 'ConsoleJS-Test', // Google Drive上の保存ファイル名に使用される名前
-                appEntry: init            // ログイン成功・リダイレクト復帰後に実行される関数
-              })
-            }
-          }
-        }
-
-        console.log(`[index.html domLoaded] end`)
+      // 以下はstorage&gis利用時のサンプル
+      /*
+      await Console.settings({ // 記憶領域の利用、gisの利用や表示位置/非表示にするなど、設定を変更するなら一度だけ呼び出し可能
+        storage: true,
       })
 
-    })();
+      // Googleログイン状態に応じた初期化フローのサンプル
+      // 1. ログイン済み（ユーザー情報が存在する）か確認
+      const user = await kv.get(".user")
+      if (user) {
+        // すでにログイン済みの場合は、そのままアプリのエントリーポイント（init）を実行
+        await init()
+      } else {
+        // 2. 未ログインの場合は、認証情報の設定とログイン処理を開始
+        // ※実運用アプリでは prompt ではなく独自の設定画面などで入力させる構成が一般的です
+
+        // 現在設定されているクライアントIDを取得（あればプロンプトに表示）
+        const currentId = await Console.gis.getClientId()
+        const clientId = prompt("Google Client ID を入力してください", currentId)
+
+        if (clientId) {
+          await Console.gis.setClientId(clientId)
+
+          // 同様にクライアントシークレットも設定
+          const currentSecret = await Console.gis.getClientSecret()
+          const clientSecret = prompt("Google Client Secret を入力してください", currentSecret)
+
+          if (clientSecret) {
+            await Console.gis.setClientSecret(clientSecret)
+
+            // 3. アプリ情報とエントリーポイントを指定して、Googleログイン画面へリダイレクト
+            await Console.gis.loginRequest({
+              appName: 'ConsoleJS-Test', // Google Drive上の保存ファイル名に使用される名前
+              appEntry: init            // ログイン成功・リダイレクト復帰後に実行される関数
+            })
+          }
+        }
+      }
+      */
+
+      console.log(`[index.html domLoaded] end`)
+    })
+
+  })();
 </script>
 
 </html>
