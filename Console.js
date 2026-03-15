@@ -1,6 +1,6 @@
 "use strict";
 globalThis.Console = async (args = {}) => {
-  const VERSION = "3.0.1"
+  const VERSION = "3.0.2"
   const iswin = (typeof (window) !== "undefined")
   const issw = (typeof (ServiceWorkerGlobalScope) !== "undefined")
   const canbcc = (typeof (globalThis.BroadcastChannel) !== "undefined")
@@ -490,8 +490,8 @@ globalThis.Console = async (args = {}) => {
         console.log(`[gis.handleRedirectCallback] トークン交換エラー: ${data.error} - ${data.error_description}`)
         return false
       }
-      if (data.refreshToken) {
-        await storage_info.set("refreshToken", data.refreshToken)
+      if (data.refresh_token) {
+        await storage_info.set("refreshToken", data.refresh_token)
         console.log(`[gis.handleRedirectCallback] リフレッシュトークンを保存しました。`)
       }
       if (data.access_token) {
