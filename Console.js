@@ -1,6 +1,6 @@
 "use strict";
 globalThis.Console = async (args = {}) => {
-  const VERSION = "3.0.2"
+  const VERSION = "3.0.3"
   const iswin = (typeof (window) !== "undefined")
   const issw = (typeof (ServiceWorkerGlobalScope) !== "undefined")
   const canbcc = (typeof (globalThis.BroadcastChannel) !== "undefined")
@@ -1353,9 +1353,9 @@ globalThis.Console = async (args = {}) => {
       <div class="${p}str">&ensp;<span id="${p}cmdsl" class="${p}cmd">@cl</span> change log view mode (currently <span id="${p}cmdclnow">${await getViewMode()}</span>)</div>
       <div class="${p}str">&ensp;<span id="${p}cmddl" class="${p}cmd">@dl</span> delete log</div>
       <div class="${p}str">&ensp;<span id="${p}cmdgi" class="${p}cmd">@gi</span> get client id</div>
-      <div class="${p}str">&ensp;<span id="${p}cmdsi" class="${p}cmd">@si</span> set client id</div>
+      <div class="${p}str">&ensp;<span id="${p}cmdsi" class="${p}cmd">@si {id}</span> set client id</div>
       <div class="${p}str">&ensp;<span id="${p}cmdgs" class="${p}cmd">@gs</span> get client secret</div>
-      <div class="${p}str">&ensp;<span id="${p}cmdss" class="${p}cmd">@ss</span> set client secret</div>
+      <div class="${p}str">&ensp;<span id="${p}cmdss" class="${p}cmd">@ss {secret}</span> set client secret</div>
       <div id="${p}divli" class="${p}str">&ensp;<span id="${p}cmdli" class="${p}cmd">@li {appName}</span> google login</div>
       <div id="${p}divlo" class="${p}str ${p}hide">&ensp;<span id="${p}cmdlo" class="${p}cmd">@lo</span> google logout</div>
       <div id="${p}divrd" class="${p}str ${p}hide">&ensp;<span id="${p}cmdrd" class="${p}cmd">@rd</span> recv data from google drive</div>
