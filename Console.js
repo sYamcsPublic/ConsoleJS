@@ -321,7 +321,7 @@ globalThis.Console = async (args = {}) => {
     try {
       // 1. アプリ内の状態をクリア
       gis.accessToken = null;
-      await storage_info.delete("refreshToken")
+      await storage_info.delete("refresh_token")
       if (typeof storage !== 'undefined') {
         await storage.delete(".user");
       }
@@ -491,7 +491,7 @@ globalThis.Console = async (args = {}) => {
         return false
       }
       if (data.refresh_token) {
-        await storage_info.set("refreshToken", data.refresh_token)
+        await storage_info.set("refresh_token", data.refresh_token)
         console.log(`[gis.handleRedirectCallback] リフレッシュトークンを保存しました。`)
       }
       if (data.access_token) {
@@ -518,15 +518,15 @@ globalThis.Console = async (args = {}) => {
 
   // リフレッシュトークンによるアクセストークン再取得
   gis.tryRefresh = async () => {
-    const refreshToken = await storage_info.get("refreshToken")
-    if (!refreshToken) return false
+    const refresh_token = await storage_info.get("refresh_token")
+    if (!refresh_token) return false
     try {
       const clientId = await gis.getClientId()
       const clientSecret = await gis.getClientSecret()
       const bodyParams = {
         client_id: clientId,
-        refreshToken: refreshToken,
-        grant_type: "refreshToken",
+        refresh_token: refresh_token,
+        grant_type: "refresh_token",
       }
       if (clientSecret) bodyParams.client_secret = clientSecret
       const res = await fetch("https://oauth2.googleapis.com/token", {
@@ -542,7 +542,7 @@ globalThis.Console = async (args = {}) => {
         return true
       } else {
         console.log(`[gis.tryRefresh] アクセストークンの更新に失敗しました。: ${JSON.stringify(data)}`)
-        await storage_info.delete("refreshToken")
+        await storage_info.delete("refresh_token")
         return false
       }
     } catch (e) {
