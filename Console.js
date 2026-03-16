@@ -1,6 +1,6 @@
 "use strict";
 globalThis.Console = async (args = {}) => {
-  const VERSION = "3.0.3"
+  const VERSION = "3.0.4"
   const iswin = (typeof (window) !== "undefined")
   const issw = (typeof (ServiceWorkerGlobalScope) !== "undefined")
   const canbcc = (typeof (globalThis.BroadcastChannel) !== "undefined")
@@ -89,12 +89,16 @@ globalThis.Console = async (args = {}) => {
   gis.isProcessing = false; // 処理中フラグ
 
   // 認証ヘッダー付きでfetchを実行
+  gis.authfetchRetryCount = 0
   gis.authfetch = async (url, options = {}) => {
     // console.log(`[gis.authfetch] start url:${url}, options:${truncateText(JSON.stringify(options))}`);
     try {
       // if (!navigator.onLine) throw new Error(`ネットワークに接続されていません。接続後に再度実施してください。`);
       if (!isOnline) throw new Error(`ネットワークに接続されていません。接続後に再度実施してください。`);
-      if (!gis.accessToken) throw new Error(`トークンがないため認証不可。ログイン後に再度実施してください。`);
+      if (!gis.accessToken) {
+        const refreshed = await gis.tryRefresh()
+        if (!refreshed) throw new Error(`アクセストークンがないため更新を試みましたが失敗しました。再ログイン後に再度実施してください。`);
+      }
       const authOptions = {
         ...options,
         headers: { ...options.headers, 'Authorization': `Bearer ${gis.accessToken}` }
@@ -104,7 +108,12 @@ globalThis.Console = async (args = {}) => {
       if (!response.ok) {
         const errorDetail = await response.json().catch(() => ({}));
         console.log(`[gis.authfetch] errorDetail: ${JSON.stringify(errorDetail)}`); // エラー詳細表示
-        if (response.status === 401) throw new Error(`通信時にエラーが発生しました。セッションの有効期限が切れた可能性が高いため、アプリを再起動してください。`); // 認証情報の不足、もしくは無効
+        if (response.status === 401) {
+          gis.authfetchRetryCount++;
+          if (gis.authfetchRetryCount > 2) throw new Error(`複数回リトライしましたが、通信時にエラーが発生しました。セッションの有効期限が切れた可能性が高いため、アプリを再起動してください。`); // 認証情報の不足、もしくは無効
+          gis.accessToken = null;
+          await gis.authfetch(url, options);
+        }
         if (response.status === 403) throw new Error(`通信時にエラーが発生しました。ログイン時にGoogleDriveアクセス許可欄にチェックしていない、もしくは反映に時間がかかっている可能性があります。アプリを複数回再起動してください。`); // 認証が失敗
       }
       // console.log(`[gis.authfetch] normal end`);
@@ -123,8 +132,8 @@ globalThis.Console = async (args = {}) => {
       const q = encodeURIComponent(`name = '${filename}' and 'root' in parents and trashed = false`);
       const res = await gis.authfetch(`https://www.googleapis.com/drive/v3/files?q=${q}`);
       const json = await res.json();
-      console.log("filename:" + filename)
-      console.log("json.files:" + JSON.stringify(json.files))
+      // console.log("filename:" + filename)
+      // console.log("json.files:" + JSON.stringify(json.files))
       return json.files && json.files.length > 0 ? json.files[0].id : null;
     } catch (e) {
       throw e;
@@ -1764,15 +1773,17 @@ globalThis.Console = async (args = {}) => {
         await gis.handleRedirectCallback()
       }
 
-      // 未ログイン状態なら、ストレージ内のリフレッシュトークンを使って自動ログイン（再取得）を試みる
-      const user = await storage.get(".user")
-      if (!user && isStorageIDB) {
-        console.log(`[settings] ユーザー情報なし。自動リフレッシュを試みます。`)
+      // 自動ログイン（アクセストークンの再取得）を試みる
+      if (isStorageIDB) {
+        console.log(`[settings] 自動ログインを試みます。`)
         const refreshed = await gis.tryRefresh()
         if (refreshed) {
+          console.log(`[settings] 自動ログイン成功。アクセストークン更新済。`)
           if (gis.appEntry) {
             await gis.finish(gis.accessToken)
           }
+        } else {
+          console.log(`[settings] 自動ログイン失敗。アクセストークン未更新。`)
         }
       }
 
